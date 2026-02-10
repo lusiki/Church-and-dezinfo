@@ -10,6 +10,7 @@ data/merged_comprehensive.rds
 papers/*_files/
 papers/*.pdf
 papers/*.docx
+*.rmarkdown
 *_cache/
 *_files/
 
