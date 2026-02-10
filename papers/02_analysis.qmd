@@ -1,0 +1,1109 @@
+---
+title: "Dezinformacijski narativi u hrvatskim katoličkim medijima"
+subtitle: "Analiza narativnih struktura (2021.–2024.)"
+author: "Media Analysis Research"
+date: today
+bibliography: references.bib
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    code-summary: "Show code"
+    df-print: paged
+    fig-width: 10
+    fig-height: 6
+    fig-dpi: 300
+    embed-resources: true
+  pdf:
+    toc: true
+    number-sections: true
+    fig-width: 8
+    fig-height: 5
+  docx:
+    toc: true
+    number-sections: true
+execute:
+  warning: false
+  message: false
+  echo: true
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+# ==============================================================================
+# CONFIGURATION
+# ==============================================================================
+
+DATA_DIR <- file.path(here::here(), "data")
+
+# ==============================================================================
+# PACKAGES
+# ==============================================================================
+
+required_packages <- c(
+  "dplyr", "tidyr", "stringr", "stringi", "lubridate", "forcats", "tibble",
+  "ggplot2", "scales", "patchwork", "ggrepel", "RColorBrewer",
+  "knitr", "kableExtra",
+  "quanteda", "quanteda.textstats",
+  "tidytext"
+)
+
+for (pkg in required_packages) {
+  if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
+    install.packages(pkg, quiet = TRUE)
+    library(pkg, character.only = TRUE)
+  }
+}
+
+options(dplyr.summarise.inform = FALSE, scipen = 999)
+
+# ==============================================================================
+# CUSTOM THEME AND PALETTES
+# ==============================================================================
+
+theme_report <- theme_minimal(base_size = 12) +
+  theme(
+    plot.title    = element_text(face = "bold", size = 14),
+    plot.subtitle = element_text(color = "gray40", size = 11),
+    legend.position  = "bottom",
+    panel.grid.minor = element_blank(),
+    strip.text       = element_text(face = "bold")
+  )
+theme_set(theme_report)
+
+frame_colors <- c(
+  "MORAL_DECAY"              = "#e41a1c",
+  "FOREIGN_THREAT"           = "#ff7f00",
+  "INSTITUTIONAL_DISTRUST"   = "#984ea3",
+  "TRADITIONAL_VALUES"       = "#4daf4a",
+  "SOVEREIGNTY"              = "#377eb8",
+  "CONSPIRACY"               = "#a65628",
+  "FAITH_DEFENCE"            = "#f781bf",
+  "MEDIA_CRITIQUE"           = "#999999",
+  "NONE"                     = "gray80"
+)
+
+media_colors <- c(
+  "Catholic"     = "#e41a1c",
+  "Conservative" = "#ff7f00",
+  "Liberal"      = "#377eb8",
+  "Tabloid"      = "#984ea3",
+  "Regional"     = "#4daf4a",
+  "Business"     = "#a65628",
+  "Other"        = "gray60"
+)
+
+topic_colors <- c(
+  "COVID_HEALTH"       = "#e41a1c",
+  "GENDER_FAMILY"      = "#ff7f00",
+  "MIGRATION"          = "#377eb8",
+  "EU_SOVEREIGNTY"     = "#4daf4a",
+  "MEDIA_TRUST"        = "#984ea3",
+  "EDUCATION_CULTURE"  = "#a65628",
+  "NONE"               = "gray80"
+)
+
+sentiment_colors <- c(
+  "positive" = "#4daf4a",
+  "neutral"  = "gray60",
+  "negative" = "#e41a1c"
+)
+
+catholic_sub_colors <- c(
+  "Official Church"  = "#1b9e77",
+  "Catholic Radio"   = "#d95f02",
+  "Catholic Portals" = "#7570b3",
+  "Catholic Aligned" = "#e7298a"
+)
+```
+
+# Sažetak {.unnumbered}
+
+Ovaj dokument analizira narativne strukture u hrvatskim katoličkim medijima na spornim temama u razdoblju od 2021. do 2024. godine. Analiza se ne bavi utvrđivanjem istinitosti pojedinih tvrdnji nego kartira kako katolički mediji uokviruju sporne teme i kakav je odnos tih narativnih struktura prema dezinformacijskim ekosustavu.
+
+::: {.callout-note}
+## Priprema podataka
+Korpus je prethodno pripremljen pomoću skripte `01_data_preparation.R`. Ako nemate pripremljene RDS datoteke, prvo pokrenite tu skriptu.
+:::
+
+Istraživanje se oslanja na tri teorijska uporišta. Teorija uokvirivanja [@entman1993framing; @gamson1989media] objašnjava kako mediji biraju, naglašavaju i organiziraju informacije. Teorija strateških narativa [@miskimmon2013strategic] promatra narativne strategije kao instrument moći. Pristupi dezinformacijama kao ekosustavu [@bastos2023disinformation; @recuero2025disinformation] pomiču fokus s pojedinačnih neistinitih tvrdnji na strukturne obrasce koji proizvode i pojačavaju dezinformirajuće narativne okvire.
+
+**Istraživačka pitanja:**
+
+**IP1** Koji narativni okviri prevladavaju u katoličkim medijima pri izvještavanju o spornim temama?
+
+**IP2** Kako se ti okviri razlikuju od narativnih obrazaca u drugim tipovima medija?
+
+**IP3** Kakva je emocionalna arhitektura katoličkih medijskih narativa i kako se ona mijenja tijekom vremena?
+
+**IP4** U kojoj mjeri narativne strukture katoličkih medija pokazuju strukturnu bliskost s dezinformacijskim ekosustavu?
+
+# Uvod
+
+## Pozadina istraživanja
+
+Hrvatski katolički medijski prostor čini raznolik skup izdavača. Na jednom kraju spektra stoje službena glasila poput IKA (Informativna katolička agencija) i Glasa Koncila, koji djeluju pod izravnim uredničkim nadzorom crkvene hijerarhije. Na drugom kraju nalaze se portali poput narod.hr ili dnevno.hr, koji nisu formalno vezani uz Crkvu ali redovito zastupaju svjetonazorske pozicije bliske katoličkom učenju. Ta distinkcija je ključna jer je razumno očekivati da službeni i neslužbeni katolički mediji koriste različite narativne strategije.
+
+Teorija uokvirivanja [@entman1993framing; @scheufele1999framing] argumentira da mediji ne samo prenose informacije nego ih aktivno organiziraju kroz selekciju, naglašavanje i isključivanje. U kontekstu spornih tema poput rodne politike, migracijskih tokova ili povjerenja u institucije, uokvirivanje postaje posebno značajno jer oblikuje javnu percepciju i diskurs o tim pitanjima.
+
+Suvremena istraživanja dezinformacija [@wardle2017information] sve više napuštaju binaran pristup (istina/laž) u korist analize narativnih ekosustava u kojima se dezinformacije produciraju i pojačavaju. Karakteristike tog ekosustava uključuju konspirativne okvire, konstrukciju vanjskih prijetnji, emocionalnu intenzifikaciju i institucionalno nepovjerenje, koje su sve prisutne i u legitimnim medijskim prostorima, uključujući religijske medije.
+
+## Analitički pristup
+
+Ovaj projekt ne pokušava odgovoriti na pitanje je li pojedini članak dezinformacija. Umjesto toga analizira narativne strukture koje katolički mediji koriste pri izvještavanju o spornim temama i istražuje u kojoj mjeri te strukture korespondiraju sa strukturama koje karakteriziraju dezinformacijske ekosustave.
+
+Analiza koristi rječničku metodu detekcije (dictionary based approach) za identifikaciju spornih tema, narativnih okvira, aktera i emocionalnih markera. Kompozitni indeks strukturne bliskosti s dezinformacijskim ekosustavu (disinfo alignment index) služi kao strukturni proxy, ne kao mjera istinitosti.
+
+
+# Podaci
+
+## Učitavanje korpusa
+
+```{r}
+#| label: load-data
+
+full_path      <- file.path(DATA_DIR, "catholic_media_full_corpus.rds")
+contested_path <- file.path(DATA_DIR, "catholic_media_contested_corpus.rds")
+
+if (!file.exists(full_path)) {
+  stop("Full corpus not found: ", full_path,
+       "\n\nPlease run 01_data_preparation.R first.")
+}
+
+full_corpus      <- readRDS(full_path)
+contested_corpus <- readRDS(contested_path)
+
+# Load Catholic subcorpora if available
+cath_path <- file.path(DATA_DIR, "catholic_media_catholic_corpus.rds")
+cath_contested_path <- file.path(DATA_DIR, "catholic_media_catholic_contested.rds")
+
+if (file.exists(cath_path)) {
+  catholic_corpus <- readRDS(cath_path)
+} else {
+  catholic_corpus <- full_corpus |> filter(media_type == "Catholic")
+}
+
+if (file.exists(cath_contested_path)) {
+  catholic_contested <- readRDS(cath_contested_path)
+} else {
+  catholic_contested <- full_corpus |> filter(media_type == "Catholic" & has_contested_topic == TRUE)
+}
+
+# Reference columns
+frame_cols <- grep("^frame_", names(full_corpus), value = TRUE)
+topic_cols <- grep("^topic_", names(full_corpus), value = TRUE)
+actor_cols <- grep("^actor_", names(full_corpus), value = TRUE)
+
+cat("Corpus loaded successfully\n")
+cat("Full corpus:", format(nrow(full_corpus), big.mark = ","), "articles\n")
+cat("Contested corpus:", format(nrow(contested_corpus), big.mark = ","), "articles\n")
+cat("Catholic corpus:", format(nrow(catholic_corpus), big.mark = ","), "articles\n")
+cat("Catholic contested:", format(nrow(catholic_contested), big.mark = ","), "articles\n")
+cat("Date range:", as.character(min(full_corpus$DATE)),
+    "to", as.character(max(full_corpus$DATE)), "\n")
+```
+
+## Pregled korpusa
+
+```{r}
+#| label: corpus-overview
+
+summary_stats <- tibble(
+  Metric = c("Ukupno članaka", "Članci o spornim temama", "Katolički mediji ukupno",
+             "Katolički mediji o spornim temama", "Jedinstveni izvori", "Razdoblje",
+             "Prosječan broj riječi", "Medijan broja riječi"),
+  Value = c(
+    format(nrow(full_corpus), big.mark = ","),
+    format(nrow(contested_corpus), big.mark = ","),
+    format(nrow(catholic_corpus), big.mark = ","),
+    format(nrow(catholic_contested), big.mark = ","),
+    format(n_distinct(full_corpus$FROM), big.mark = ","),
+    paste(min(full_corpus$DATE), "do", max(full_corpus$DATE)),
+    round(mean(full_corpus$word_count, na.rm = TRUE)),
+    round(median(full_corpus$word_count, na.rm = TRUE))
+  )
+)
+
+kable(summary_stats, col.names = c("Metrika", "Vrijednost")) |>
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+```{r}
+#| label: fig-media-type-dist
+#| fig-cap: "Distribucija članaka po tipu medija"
+
+media_dist <- full_corpus |>
+  count(media_type, sort = TRUE) |>
+  mutate(pct = round(n / sum(n) * 100, 1))
+
+ggplot(media_dist, aes(x = reorder(media_type, n), y = n, fill = media_type)) +
+  geom_col(alpha = 0.85) +
+  geom_text(aes(label = paste0(format(n, big.mark = ","), " (", pct, "%)")),
+            hjust = -0.05, size = 3.5) +
+  coord_flip() +
+  scale_fill_manual(values = media_colors, guide = "none") +
+  labs(title = "Distribucija po tipu medija", x = NULL, y = "Broj članaka") +
+  expand_limits(y = max(media_dist$n) * 1.25)
+```
+
+```{r}
+#| label: fig-catholic-subcategories
+#| fig-cap: "Katolički mediji po potkategorijama"
+
+if (nrow(catholic_corpus) > 0) {
+  cath_sub <- catholic_corpus |>
+    count(catholic_subcategory, sort = TRUE) |>
+    mutate(pct = round(n / sum(n) * 100, 1))
+
+  ggplot(cath_sub, aes(x = reorder(catholic_subcategory, n), y = n,
+                       fill = catholic_subcategory)) +
+    geom_col(alpha = 0.85) +
+    geom_text(aes(label = paste0(format(n, big.mark = ","), " (", pct, "%)")),
+              hjust = -0.05, size = 3.5) +
+    coord_flip() +
+    scale_fill_manual(values = catholic_sub_colors, guide = "none") +
+    labs(title = "Katolički mediji po potkategorijama", x = NULL, y = "Broj članaka") +
+    expand_limits(y = max(cath_sub$n) * 1.3)
+}
+```
+
+
+# Analiza spornih tema
+
+## Zastupljenost tema po tipu medija
+
+```{r}
+#| label: fig-topic-prevalence
+#| fig-cap: "Zastupljenost spornih tema po tipu medija"
+#| fig-height: 7
+
+topic_by_media <- full_corpus |>
+  group_by(media_type) |>
+  summarise(
+    n = n(),
+    across(all_of(topic_cols), ~sum(.x, na.rm = TRUE) / n() * 100)
+  ) |>
+  filter(n >= 50) |>
+  pivot_longer(
+    cols = all_of(topic_cols),
+    names_to = "topic",
+    values_to = "pct"
+  ) |>
+  mutate(topic = str_remove(topic, "topic_"))
+
+ggplot(topic_by_media, aes(x = topic, y = pct, fill = media_type)) +
+  geom_col(position = "dodge", alpha = 0.85) +
+  scale_fill_manual(values = media_colors) +
+  labs(
+    title = "Zastupljenost spornih tema po tipu medija",
+    subtitle = "Postotak članaka koji sadrže barem jednu ključnu riječ za temu",
+    x = NULL, y = "% članaka", fill = "Tip medija"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## Evolucija tema u katoličkim medijima
+
+```{r}
+#| label: fig-topic-evolution-catholic
+#| fig-cap: "Evolucija spornih tema u katoličkim medijima"
+#| fig-height: 8
+
+if (nrow(catholic_corpus) > 0) {
+  topic_monthly_cath <- catholic_corpus |>
+    group_by(year_month) |>
+    summarise(
+      n_total = n(),
+      across(all_of(topic_cols), ~sum(.x, na.rm = TRUE))
+    ) |>
+    pivot_longer(
+      cols = all_of(topic_cols),
+      names_to = "topic",
+      values_to = "count"
+    ) |>
+    mutate(
+      topic = str_remove(topic, "topic_"),
+      pct = count / n_total * 100
+    ) |>
+    filter(!is.na(year_month))
+
+  ggplot(topic_monthly_cath, aes(x = year_month, y = pct, color = topic)) +
+    geom_line(linewidth = 0.6, alpha = 0.6) +
+    geom_smooth(method = "loess", se = FALSE, linewidth = 1.2, span = 0.3) +
+    facet_wrap(~topic, ncol = 2, scales = "free_y") +
+    scale_color_manual(values = topic_colors, guide = "none") +
+    scale_x_date(date_breaks = "6 months", date_labels = "%b\n%Y") +
+    labs(
+      title = "Evolucija spornih tema u katoličkim medijima",
+      subtitle = "Mjesečni postotak članaka s trend linijom (loess)",
+      x = NULL, y = "% članaka"
+    ) +
+    theme(axis.text.x = element_text(size = 8))
+}
+```
+
+
+# Analiza narativnih okvira
+
+## Distribucija okvira
+
+```{r}
+#| label: fig-frame-overview
+#| fig-cap: "Ukupna zastupljenost narativnih okvira"
+
+frame_counts <- full_corpus |>
+  summarise(across(all_of(frame_cols), ~sum(.x, na.rm = TRUE))) |>
+  pivot_longer(everything(), names_to = "frame", values_to = "count") |>
+  mutate(
+    frame = str_remove(frame, "frame_"),
+    pct = round(count / nrow(full_corpus) * 100, 1)
+  ) |>
+  arrange(desc(count))
+
+ggplot(frame_counts, aes(x = reorder(frame, count), y = count, fill = frame)) +
+  geom_col(alpha = 0.85) +
+  geom_text(aes(label = paste0(pct, "%")), hjust = -0.1, size = 3.5) +
+  coord_flip() +
+  scale_fill_manual(values = frame_colors, guide = "none") +
+  labs(title = "Zastupljenost narativnih okvira u punom korpusu",
+       x = NULL, y = "Broj članaka") +
+  expand_limits(y = max(frame_counts$count) * 1.15)
+```
+
+## Toplinska karta: okviri po tipu medija
+
+```{r}
+#| label: fig-frame-heatmap
+#| fig-cap: "Toplinska karta: zastupljenost okvira po tipu medija"
+#| fig-height: 7
+
+frame_by_media <- full_corpus |>
+  group_by(media_type) |>
+  summarise(
+    n = n(),
+    across(all_of(frame_cols), ~sum(.x, na.rm = TRUE) / n() * 100)
+  ) |>
+  filter(n >= 50) |>
+  pivot_longer(
+    cols = all_of(frame_cols),
+    names_to = "frame",
+    values_to = "pct"
+  ) |>
+  mutate(frame = str_remove(frame, "frame_"))
+
+ggplot(frame_by_media, aes(x = frame, y = media_type, fill = pct)) +
+  geom_tile(color = "white", linewidth = 0.5) +
+  geom_text(aes(label = sprintf("%.1f", pct)), size = 3) +
+  scale_fill_gradient(low = "white", high = "#e41a1c", name = "% članaka") +
+  labs(
+    title = "Narativni okviri po tipu medija",
+    subtitle = "Postotak članaka koji aktiviraju svaki okvir",
+    x = NULL, y = NULL
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## Usporedba: katolički vs. ostali mediji
+
+```{r}
+#| label: fig-frame-comparison
+#| fig-cap: "Okviri u katoličkim vs. ostalim medijima"
+
+frame_comparison <- full_corpus |>
+  mutate(is_catholic = ifelse(media_type == "Catholic", "Katolički", "Ostali")) |>
+  group_by(is_catholic) |>
+  summarise(
+    n = n(),
+    across(all_of(frame_cols), ~sum(.x, na.rm = TRUE) / n() * 100)
+  ) |>
+  pivot_longer(
+    cols = all_of(frame_cols),
+    names_to = "frame",
+    values_to = "pct"
+  ) |>
+  mutate(frame = str_remove(frame, "frame_"))
+
+ggplot(frame_comparison, aes(x = reorder(frame, pct), y = pct, fill = is_catholic)) +
+  geom_col(position = "dodge", alpha = 0.85) +
+  coord_flip() +
+  scale_fill_manual(values = c("Katolički" = "#e41a1c", "Ostali" = "#377eb8")) +
+  labs(
+    title = "Narativni okviri: katolički vs. ostali mediji",
+    x = NULL, y = "% članaka", fill = NULL
+  )
+```
+
+## Profil okvira unutar katoličkih potkategorija
+
+```{r}
+#| label: fig-frame-catholic-sub
+#| fig-cap: "Narativni profil katoličkih potkategorija"
+#| fig-height: 7
+
+if (nrow(catholic_corpus) > 0 && n_distinct(catholic_corpus$catholic_subcategory) > 1) {
+  frame_cath_sub <- catholic_corpus |>
+    group_by(catholic_subcategory) |>
+    summarise(
+      n = n(),
+      across(all_of(frame_cols), ~sum(.x, na.rm = TRUE) / n() * 100)
+    ) |>
+    filter(n >= 20) |>
+    pivot_longer(
+      cols = all_of(frame_cols),
+      names_to = "frame",
+      values_to = "pct"
+    ) |>
+    mutate(frame = str_remove(frame, "frame_"))
+
+  ggplot(frame_cath_sub, aes(x = frame, y = catholic_subcategory, fill = pct)) +
+    geom_tile(color = "white", linewidth = 0.5) +
+    geom_text(aes(label = sprintf("%.1f", pct)), size = 3) +
+    scale_fill_gradient(low = "white", high = "#d95f02", name = "% članaka") +
+    labs(
+      title = "Narativni profil po potkategoriji katoličkih medija",
+      subtitle = "Razlika između službenih crkvenih i katolički orijentiranih medija",
+      x = NULL, y = NULL
+    ) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+}
+```
+
+## Supojavljivanje okvira
+
+```{r}
+#| label: fig-frame-cooccurrence
+#| fig-cap: "Matrica supojavljivanja narativnih okvira"
+
+frame_matrix <- full_corpus |>
+  select(all_of(frame_cols)) |>
+  as.matrix()
+
+colnames(frame_matrix) <- str_remove(colnames(frame_matrix), "frame_")
+
+co_occur <- crossprod(frame_matrix)
+diag_vals <- diag(co_occur)
+cond_prob <- sweep(co_occur, 1, pmax(diag_vals, 1), "/")
+
+co_df <- as.data.frame(as.table(cond_prob))
+names(co_df) <- c("frame_row", "frame_col", "prob")
+
+ggplot(co_df, aes(x = frame_col, y = frame_row, fill = prob)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = sprintf("%.2f", prob)), size = 2.5) +
+  scale_fill_gradient2(low = "white", mid = "#fee8c8", high = "#e34a33",
+                       midpoint = 0.3, name = "P(col | row)") +
+  labs(
+    title = "Supojavljivanje narativnih okvira",
+    subtitle = "Uvjetna vjerojatnost: P(stupac | redak)",
+    x = NULL, y = NULL
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## Evolucija okvira kroz vrijeme
+
+```{r}
+#| label: fig-frame-evolution
+#| fig-cap: "Evolucija narativnih okvira u katoličkim medijima"
+#| fig-height: 8
+
+if (nrow(catholic_corpus) > 0) {
+  frame_monthly_cath <- catholic_corpus |>
+    group_by(year_month) |>
+    summarise(
+      n_total = n(),
+      across(all_of(frame_cols), ~sum(.x, na.rm = TRUE))
+    ) |>
+    pivot_longer(
+      cols = all_of(frame_cols),
+      names_to = "frame",
+      values_to = "count"
+    ) |>
+    mutate(
+      frame = str_remove(frame, "frame_"),
+      pct = count / n_total * 100
+    ) |>
+    filter(!is.na(year_month))
+
+  ggplot(frame_monthly_cath, aes(x = year_month, y = pct, color = frame)) +
+    geom_line(linewidth = 0.6, alpha = 0.6) +
+    geom_smooth(method = "loess", se = FALSE, linewidth = 1.2, linetype = "dashed") +
+    facet_wrap(~frame, ncol = 2, scales = "free_y") +
+    scale_color_manual(values = frame_colors, guide = "none") +
+    scale_x_date(date_breaks = "6 months", date_labels = "%b\n%Y") +
+    labs(
+      title = "Evolucija okvira u katoličkim medijima",
+      subtitle = "Mjesečni postotak s trend linijom (loess)",
+      x = NULL, y = "% članaka"
+    ) +
+    theme(axis.text.x = element_text(size = 8))
+}
+```
+
+
+# Emocionalna arhitektura
+
+## Distribucija sentimenta
+
+```{r}
+#| label: fig-sentiment-boxplot
+#| fig-cap: "Distribucija sentiment skora po tipu medija"
+
+ggplot(full_corpus, aes(x = media_type, y = sentiment_score, fill = media_type)) +
+  geom_boxplot(alpha = 0.7, outlier.size = 0.3, outlier.alpha = 0.2) +
+  scale_fill_manual(values = media_colors, guide = "none") +
+  labs(
+    title = "Distribucija sentiment skora po tipu medija",
+    subtitle = "Pozitivan skor = više pozitivnih nego negativnih jezičnih markera",
+    x = NULL, y = "Sentiment skor (normaliziran na 1000 riječi)"
+  ) +
+  coord_cartesian(ylim = quantile(full_corpus$sentiment_score, c(0.01, 0.99), na.rm = TRUE))
+```
+
+```{r}
+#| label: fig-sentiment-categories
+#| fig-cap: "Kategorije sentimenta po tipu medija"
+
+sentiment_by_media <- full_corpus |>
+  count(media_type, sentiment_category) |>
+  group_by(media_type) |>
+  mutate(pct = n / sum(n)) |>
+  ungroup()
+
+ggplot(sentiment_by_media, aes(x = media_type, y = pct, fill = sentiment_category)) +
+  geom_col(alpha = 0.85) +
+  scale_fill_manual(values = sentiment_colors) +
+  scale_y_continuous(labels = percent) +
+  labs(
+    title = "Kategorije sentimenta po tipu medija",
+    x = NULL, y = "Udio", fill = "Sentiment"
+  )
+```
+
+## Emocionalni intenzitet
+
+```{r}
+#| label: fig-emotional-intensity
+#| fig-cap: "Emocionalni intenzitet po tipu medija"
+
+ggplot(full_corpus, aes(x = media_type, y = emotional_intensity, fill = media_type)) +
+  geom_boxplot(alpha = 0.7, outlier.size = 0.3, outlier.alpha = 0.2) +
+  scale_fill_manual(values = media_colors, guide = "none") +
+  labs(
+    title = "Emocionalni intenzitet po tipu medija",
+    subtitle = "Gustoća emocionalnih markera i pojačivača na 1000 riječi",
+    x = NULL, y = "Emocionalni intenzitet"
+  ) +
+  coord_cartesian(ylim = quantile(full_corpus$emotional_intensity, c(0.01, 0.99), na.rm = TRUE))
+```
+
+```{r}
+#| label: fig-emotion-by-topic
+#| fig-cap: "Emocionalni intenzitet po spornoj temi"
+#| fig-height: 7
+
+emotion_topic <- contested_corpus |>
+  select(emotional_intensity, media_type, all_of(topic_cols)) |>
+  pivot_longer(
+    cols = all_of(topic_cols),
+    names_to = "topic",
+    values_to = "present"
+  ) |>
+  filter(present == TRUE) |>
+  mutate(topic = str_remove(topic, "topic_"))
+
+ggplot(emotion_topic, aes(x = topic, y = emotional_intensity, fill = media_type)) +
+  geom_boxplot(alpha = 0.7, outlier.size = 0.2, outlier.alpha = 0.1) +
+  scale_fill_manual(values = media_colors) +
+  labs(
+    title = "Emocionalni intenzitet po spornoj temi i tipu medija",
+    x = NULL, y = "Emocionalni intenzitet", fill = "Tip medija"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  coord_cartesian(ylim = quantile(emotion_topic$emotional_intensity, c(0.01, 0.99), na.rm = TRUE))
+```
+
+## Emocionalna putanja kroz vrijeme
+
+```{r}
+#| label: fig-sentiment-trajectory
+#| fig-cap: "Putanja sentimenta: katolički vs. ostali mediji"
+#| fig-height: 5
+
+sentiment_trajectory <- full_corpus |>
+  mutate(is_catholic = ifelse(media_type == "Catholic", "Katolički", "Ostali")) |>
+  group_by(year_month, is_catholic) |>
+  summarise(
+    mean_sentiment = mean(sentiment_score, na.rm = TRUE),
+    mean_intensity = mean(emotional_intensity, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  filter(!is.na(year_month))
+
+p1 <- ggplot(sentiment_trajectory, aes(x = year_month, y = mean_sentiment,
+                                        color = is_catholic)) +
+  geom_line(alpha = 0.4) +
+  geom_smooth(method = "loess", se = TRUE, linewidth = 1.2) +
+  scale_color_manual(values = c("Katolički" = "#e41a1c", "Ostali" = "#377eb8")) +
+  scale_x_date(date_breaks = "6 months", date_labels = "%b\n%Y") +
+  labs(title = "Sentiment skor", x = NULL, y = "Prosječni sentiment", color = NULL)
+
+p2 <- ggplot(sentiment_trajectory, aes(x = year_month, y = mean_intensity,
+                                        color = is_catholic)) +
+  geom_line(alpha = 0.4) +
+  geom_smooth(method = "loess", se = TRUE, linewidth = 1.2) +
+  scale_color_manual(values = c("Katolički" = "#e41a1c", "Ostali" = "#377eb8")) +
+  scale_x_date(date_breaks = "6 months", date_labels = "%b\n%Y") +
+  labs(title = "Emocionalni intenzitet", x = NULL, y = "Prosječni intenzitet", color = NULL)
+
+p1 / p2 + plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+```
+
+
+# Angažman i amplifikacija
+
+```{r}
+#| label: fig-engagement-media
+#| fig-cap: "Distribucija interakcija po tipu medija"
+
+if ("INTERACTIONS" %in% names(full_corpus)) {
+  engagement_data <- full_corpus |>
+    filter(INTERACTIONS > 0)
+
+  ggplot(engagement_data, aes(x = media_type, y = log10(INTERACTIONS + 1), fill = media_type)) +
+    geom_boxplot(alpha = 0.7, outlier.size = 0.3, outlier.alpha = 0.2) +
+    scale_fill_manual(values = media_colors, guide = "none") +
+    labs(
+      title = "Distribucija interakcija po tipu medija",
+      subtitle = "Logaritamska skala (log10)",
+      x = NULL, y = "log10(Interakcije + 1)"
+    )
+}
+```
+
+```{r}
+#| label: fig-engagement-frame-catholic
+#| fig-cap: "Angažman po dominantnom okviru u katoličkim medijima"
+
+if ("INTERACTIONS" %in% names(catholic_corpus) && nrow(catholic_corpus) > 0) {
+  engagement_frame <- catholic_corpus |>
+    filter(dominant_frame != "NONE" & INTERACTIONS > 0) |>
+    group_by(dominant_frame) |>
+    summarise(
+      n = n(),
+      median_interactions = median(INTERACTIONS, na.rm = TRUE),
+      mean_interactions = mean(INTERACTIONS, na.rm = TRUE),
+      .groups = "drop"
+    ) |>
+    filter(n >= 10) |>
+    arrange(desc(median_interactions))
+
+  ggplot(engagement_frame, aes(x = reorder(dominant_frame, median_interactions),
+                               y = median_interactions, fill = dominant_frame)) +
+    geom_col(alpha = 0.85) +
+    geom_text(aes(label = paste0("n=", n)), hjust = -0.1, size = 3) +
+    coord_flip() +
+    scale_fill_manual(values = frame_colors, guide = "none") +
+    labs(
+      title = "Medijan interakcija po dominantnom okviru (katolički mediji)",
+      x = NULL, y = "Medijan interakcija"
+    ) +
+    expand_limits(y = max(engagement_frame$median_interactions) * 1.2)
+}
+```
+
+```{r}
+#| label: fig-facebook-reactions
+#| fig-cap: "Profil Facebook reakcija po tipu medija"
+#| fig-height: 5
+
+reaction_cols <- intersect(
+  c("LOVE_COUNT", "WOW_COUNT", "HAHA_COUNT", "SAD_COUNT", "ANGRY_COUNT"),
+  names(full_corpus)
+)
+
+if (length(reaction_cols) == 5) {
+  fb_data <- full_corpus |>
+    filter(SOURCE_TYPE == "facebook") |>
+    group_by(media_type) |>
+    summarise(across(all_of(reaction_cols), ~sum(.x, na.rm = TRUE)), .groups = "drop") |>
+    pivot_longer(cols = all_of(reaction_cols), names_to = "reaction", values_to = "count") |>
+    group_by(media_type) |>
+    mutate(pct = count / sum(count)) |>
+    ungroup() |>
+    mutate(reaction = str_remove(reaction, "_COUNT"))
+
+  if (nrow(fb_data) > 0) {
+    ggplot(fb_data, aes(x = media_type, y = pct, fill = reaction)) +
+      geom_col(alpha = 0.85) +
+      scale_fill_manual(values = c(
+        "LOVE" = "#e41a1c", "WOW" = "#ff7f00", "HAHA" = "#ffff33",
+        "SAD" = "#377eb8", "ANGRY" = "#984ea3"
+      )) +
+      scale_y_continuous(labels = percent) +
+      labs(
+        title = "Profil Facebook reakcija po tipu medija",
+        x = NULL, y = "Udio reakcija", fill = "Reakcija"
+      )
+  }
+}
+```
+
+
+# Temporalna i fazna analiza
+
+```{r}
+#| label: fig-frame-by-phase
+#| fig-cap: "Distribucija okvira po narativnoj fazi"
+#| fig-height: 8
+
+if (nrow(catholic_corpus) > 0) {
+  frame_phase <- catholic_corpus |>
+    filter(!is.na(narrative_phase)) |>
+    group_by(narrative_phase) |>
+    summarise(
+      n = n(),
+      across(all_of(frame_cols), ~sum(.x, na.rm = TRUE) / n() * 100)
+    ) |>
+    pivot_longer(
+      cols = all_of(frame_cols),
+      names_to = "frame",
+      values_to = "pct"
+    ) |>
+    mutate(frame = str_remove(frame, "frame_"))
+
+  ggplot(frame_phase, aes(x = frame, y = pct, fill = frame)) +
+    geom_col(alpha = 0.85) +
+    facet_wrap(~narrative_phase, ncol = 2) +
+    scale_fill_manual(values = frame_colors, guide = "none") +
+    labs(
+      title = "Narativni okviri po fazama u katoličkim medijima",
+      subtitle = "Kronološke faze: COVID > Cijepljenje > Ukrajina > Euro > Kultura > Izbori",
+      x = NULL, y = "% članaka"
+    ) +
+    theme(axis.text.x = element_text(angle = 60, hjust = 1, size = 7))
+}
+```
+
+```{r}
+#| label: phase-summary-table
+
+if (nrow(catholic_corpus) > 0) {
+  phase_table <- catholic_corpus |>
+    filter(!is.na(narrative_phase)) |>
+    group_by(narrative_phase) |>
+    summarise(
+      n = n(),
+      mean_sentiment = round(mean(sentiment_score, na.rm = TRUE), 2),
+      mean_intensity = round(mean(emotional_intensity, na.rm = TRUE), 2),
+      mean_disinfo = round(mean(disinfo_alignment_norm, na.rm = TRUE), 1),
+      pct_conspiracy = round(sum(frame_CONSPIRACY, na.rm = TRUE) / n() * 100, 1),
+      .groups = "drop"
+    )
+
+  kable(phase_table,
+        col.names = c("Faza", "N", "Sentiment", "Intenzitet",
+                       "Disinfo indeks", "% zavjera")) |>
+    kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+}
+```
+
+
+# Analiza aktera
+
+```{r}
+#| label: fig-actor-by-media
+#| fig-cap: "Zastupljenost aktera po tipu medija"
+#| fig-height: 7
+
+actor_by_media <- full_corpus |>
+  group_by(media_type) |>
+  summarise(
+    n = n(),
+    across(all_of(actor_cols), ~sum(.x, na.rm = TRUE) / n() * 100)
+  ) |>
+  filter(n >= 50) |>
+  pivot_longer(
+    cols = all_of(actor_cols),
+    names_to = "actor",
+    values_to = "pct"
+  ) |>
+  mutate(actor = str_remove(actor, "actor_"))
+
+ggplot(actor_by_media, aes(x = actor, y = media_type, fill = pct)) +
+  geom_tile(color = "white", linewidth = 0.5) +
+  geom_text(aes(label = sprintf("%.1f", pct)), size = 3) +
+  scale_fill_gradient(low = "white", high = "#377eb8", name = "% članaka") +
+  labs(
+    title = "Zastupljenost aktera po tipu medija",
+    x = NULL, y = NULL
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+#| label: fig-actor-frame-heatmap
+#| fig-cap: "Asocijacija aktera i narativnih okvira"
+#| fig-height: 7
+
+# Calculate co-occurrence of actors and frames
+actor_frame_assoc <- full_corpus |>
+  select(all_of(c(actor_cols, frame_cols))) |>
+  as.matrix()
+
+actor_mat <- actor_frame_assoc[, actor_cols]
+frame_mat <- actor_frame_assoc[, frame_cols]
+
+af_cross <- t(actor_mat) %*% frame_mat
+af_norm <- sweep(af_cross, 1, pmax(colSums(actor_mat), 1), "/") * 100
+
+colnames(af_norm) <- str_remove(colnames(af_norm), "frame_")
+rownames(af_norm) <- str_remove(rownames(af_norm), "actor_")
+
+af_df <- as.data.frame(as.table(af_norm))
+names(af_df) <- c("actor", "frame", "pct")
+
+ggplot(af_df, aes(x = frame, y = actor, fill = pct)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = sprintf("%.1f", pct)), size = 2.5) +
+  scale_fill_gradient2(low = "white", mid = "#deebf7", high = "#3182bd",
+                       midpoint = 20, name = "% članaka\ns akterom") +
+  labs(
+    title = "Asocijacija aktera i narativnih okvira",
+    subtitle = "Postotak članaka koji sadrže aktera a aktiviraju okvir",
+    x = NULL, y = NULL
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+# Indeks strukturne bliskosti s dezinformacijskim ekosustavu
+
+## Distribucija indeksa
+
+```{r}
+#| label: fig-disinfo-index
+#| fig-cap: "Distribucija indeksa strukturne bliskosti po tipu medija"
+
+ggplot(full_corpus, aes(x = media_type, y = disinfo_alignment_norm, fill = media_type)) +
+  geom_boxplot(alpha = 0.7, outlier.size = 0.3, outlier.alpha = 0.2) +
+  scale_fill_manual(values = media_colors, guide = "none") +
+  labs(
+    title = "Indeks strukturne bliskosti s dezinformacijskim ekosustavu",
+    subtitle = "Kompozitni skor (0 do 100) temeljen na okviru, emocijama i sentimentu",
+    x = NULL, y = "Normalizirani indeks"
+  )
+```
+
+```{r}
+#| label: disinfo-summary-table
+
+disinfo_summary <- full_corpus |>
+  group_by(media_type) |>
+  summarise(
+    n = n(),
+    mean = round(mean(disinfo_alignment_norm, na.rm = TRUE), 1),
+    median = round(median(disinfo_alignment_norm, na.rm = TRUE), 1),
+    sd = round(sd(disinfo_alignment_norm, na.rm = TRUE), 1),
+    q75 = round(quantile(disinfo_alignment_norm, 0.75, na.rm = TRUE), 1),
+    q90 = round(quantile(disinfo_alignment_norm, 0.90, na.rm = TRUE), 1),
+    .groups = "drop"
+  ) |>
+  arrange(desc(mean))
+
+kable(disinfo_summary,
+      col.names = c("Tip medija", "N", "Prosjek", "Medijan", "SD", "Q75", "Q90")) |>
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+## Indeks po potkategorijama katoličkih medija
+
+```{r}
+#| label: fig-disinfo-catholic-sub
+#| fig-cap: "Indeks strukturne bliskosti po potkategoriji katoličkih medija"
+
+if (nrow(catholic_corpus) > 0 && n_distinct(catholic_corpus$catholic_subcategory) > 1) {
+  ggplot(catholic_corpus, aes(x = catholic_subcategory, y = disinfo_alignment_norm,
+                              fill = catholic_subcategory)) +
+    geom_boxplot(alpha = 0.7, outlier.size = 0.3, outlier.alpha = 0.2) +
+    scale_fill_manual(values = catholic_sub_colors, guide = "none") +
+    labs(
+      title = "Indeks strukturne bliskosti unutar katoličkih medija",
+      subtitle = "Usporedba službenih i katolički orijentiranih medija",
+      x = NULL, y = "Normalizirani indeks"
+    )
+}
+```
+
+
+# Statistički testovi
+
+## Hi-kvadrat: okvir x tip medija
+
+```{r}
+#| label: chi-square-test
+
+# For each frame, test association with media type
+chi_results <- lapply(frame_cols, function(fc) {
+  tbl <- table(full_corpus$media_type, full_corpus[[fc]])
+  test <- chisq.test(tbl)
+  tibble(
+    frame = str_remove(fc, "frame_"),
+    chi_sq = round(test$statistic, 1),
+    df = test$parameter,
+    p_value = formatC(test$p.value, format = "e", digits = 2),
+    cramers_v = round(sqrt(test$statistic / (nrow(full_corpus) * (min(dim(tbl)) - 1))), 3)
+  )
+}) |>
+  bind_rows() |>
+  arrange(desc(cramers_v))
+
+kable(chi_results,
+      col.names = c("Okvir", "Chi-kvadrat", "df", "p", "Cramer V")) |>
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+## ANOVA: sentiment po tipu medija
+
+```{r}
+#| label: anova-sentiment
+
+aov_model <- aov(sentiment_score ~ media_type, data = full_corpus)
+
+cat("ANOVA: Sentiment skor ~ Tip medija\n")
+cat("====================================\n")
+print(summary(aov_model))
+
+# Tukey HSD post-hoc
+tukey_result <- TukeyHSD(aov_model)
+
+# Extract significant pairs
+tukey_df <- as.data.frame(tukey_result$media_type)
+tukey_df$comparison <- rownames(tukey_df)
+tukey_sig <- tukey_df |>
+  filter(`p adj` < 0.05) |>
+  mutate(across(where(is.numeric), ~round(.x, 3))) |>
+  arrange(`p adj`)
+
+if (nrow(tukey_sig) > 0) {
+  kable(tukey_sig |> select(comparison, diff, `p adj`),
+        col.names = c("Usporedba", "Razlika", "p (adj)")) |>
+    kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+} else {
+  cat("Nema statistički značajnih parova u post-hoc testu.\n")
+}
+```
+
+## Kruskal-Wallis: emocionalni intenzitet
+
+```{r}
+#| label: kruskal-wallis
+
+kw_test <- kruskal.test(emotional_intensity ~ media_type, data = full_corpus)
+
+cat("Kruskal-Wallis test: Emocionalni intenzitet ~ Tip medija\n")
+cat("=========================================================\n")
+cat("Chi-squared:", round(kw_test$statistic, 2), "\n")
+cat("df:", kw_test$parameter, "\n")
+cat("p-value:", formatC(kw_test$p.value, format = "e", digits = 3), "\n")
+```
+
+## Kruskal-Wallis: indeks strukturne bliskosti
+
+```{r}
+#| label: kruskal-wallis-disinfo
+
+kw_disinfo <- kruskal.test(disinfo_alignment_norm ~ media_type, data = full_corpus)
+
+cat("Kruskal-Wallis test: Disinfo Alignment ~ Tip medija\n")
+cat("====================================================\n")
+cat("Chi-squared:", round(kw_disinfo$statistic, 2), "\n")
+cat("df:", kw_disinfo$parameter, "\n")
+cat("p-value:", formatC(kw_disinfo$p.value, format = "e", digits = 3), "\n")
+```
+
+
+# Uzorak članaka
+
+```{r}
+#| label: sample-articles
+
+if (nrow(catholic_contested) > 0) {
+  set.seed(42)
+  sample_articles <- catholic_contested |>
+    slice_sample(n = min(30, nrow(catholic_contested))) |>
+    select(DATE, TITLE, FROM, catholic_subcategory, dominant_topic, dominant_frame) |>
+    arrange(DATE)
+
+  kable(sample_articles,
+        col.names = c("Datum", "Naslov", "Izvor", "Potkategorija",
+                       "Dominantna tema", "Dominantni okvir")) |>
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                  full_width = FALSE, font_size = 11) |>
+    scroll_box(height = "400px")
+}
+```
+
+
+# Zaključak
+
+```{r}
+#| label: key-findings
+
+n_total <- nrow(full_corpus)
+n_catholic <- nrow(catholic_corpus)
+n_catholic_contested <- nrow(catholic_contested)
+
+# Most common frame in Catholic media
+cath_frame_counts <- catholic_corpus |>
+  summarise(across(all_of(frame_cols), ~sum(.x, na.rm = TRUE))) |>
+  pivot_longer(everything(), names_to = "frame", values_to = "count") |>
+  mutate(frame = str_remove(frame, "frame_")) |>
+  arrange(desc(count))
+
+top_cath_frame <- cath_frame_counts$frame[1]
+top_cath_frame_pct <- round(cath_frame_counts$count[1] / n_catholic * 100, 1)
+
+# Mean disinfo index
+mean_disinfo_cath <- round(mean(catholic_corpus$disinfo_alignment_norm, na.rm = TRUE), 1)
+mean_disinfo_other <- round(
+  mean(full_corpus$disinfo_alignment_norm[full_corpus$media_type != "Catholic"], na.rm = TRUE), 1
+)
+
+cat("SAŽETAK ANALIZE\n")
+cat("===============\n\n")
+cat("Ukupan korpus:", format(n_total, big.mark = ","), "članaka\n")
+cat("Katolički mediji:", format(n_catholic, big.mark = ","), "članaka\n")
+cat("Katolički mediji o spornim temama:", format(n_catholic_contested, big.mark = ","), "\n\n")
+cat("Najčešći okvir u katoličkim medijima:", top_cath_frame,
+    "(", top_cath_frame_pct, "% članaka)\n")
+cat("Prosječni indeks strukturne bliskosti (katolički):", mean_disinfo_cath, "\n")
+cat("Prosječni indeks strukturne bliskosti (ostali):", mean_disinfo_other, "\n")
+```
+
+Analiza je identificirala narativne strukture u hrvatskim katoličkim medijima na spornim temama u razdoblju 2021. do 2024. Rezultati pokazuju koji okviri dominiraju, kako se oni razlikuju od ostalih tipova medija i u kojoj mjeri narativni profil katoličkih medija korespondira sa strukturnim obilježjima dezinformacijskih ekosustava.
+
+::: {.callout-important}
+## Ograničenja
+Rječnička metoda detekcije ne može prepoznati ironiju, suptilnost ni nove načine uokvirivanja. Klasifikacija medijskih izvora uključuje procjene koje zahtijevaju validaciju stručnjaka. Indeks strukturne bliskosti jest strukturni proxy, ne mjera istinitosti. Članak s visokim indeksom može biti potpuno točan; članak s niskim indeksom može sadržavati netočne tvrdnje. Sve rezultate treba tumačiti uz uvažavanje hrvatskog jezičnog konteksta i uz oslanjanje na kvalitativnu provjeru izvornog govornika.
+:::
+
+
+# Tehničke informacije
+
+```{r}
+#| label: session-info
+
+sessionInfo()
+```
+
+
+# Reference {.unnumbered}

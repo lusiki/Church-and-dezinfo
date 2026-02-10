@@ -1,0 +1,48 @@
+[2026-02-09 08:11:45] Pipeline started (optimized: web only, frames + actors) 
+[2026-02-09 08:11:45] Input file: C:/Users/lsikic/Luka C/HKS/Projekti/Digitalni Kat/SHKM/DigiKat/data/merged_comprehensive.rds 
+[2026-02-09 08:11:45] Output directory: C:/Users/lsikic/Luka C/Clanci/Lana dezinfo 
+[2026-02-09 08:11:46] Packages loaded 
+[2026-02-09 08:11:46] Detected file format: rds 
+[2026-02-09 08:12:07] Raw data loaded: 612,065 rows, 47 columns 
+[2026-02-09 08:12:07] Required columns validated 
+[2026-02-09 08:12:08] Filtered to web only: 449,698 rows (dropped 162,367 non-web) 
+[2026-02-09 08:12:26] Removed 0 records with empty FULL_TEXT 
+[2026-02-09 08:12:30] Removed 6560 duplicates by URL 
+[2026-02-09 08:13:02] Cleaned web corpus: 443,138 rows 
+[2026-02-09 08:13:03] Media classification complete: 
+[2026-02-09 08:13:03]    Other : 256,216 
+[2026-02-09 08:13:03]    Catholic : 92,915 
+[2026-02-09 08:13:03]    Liberal : 28,160 
+[2026-02-09 08:13:03]    Regional : 25,415 
+[2026-02-09 08:13:03]    Tabloid : 20,720 
+[2026-02-09 08:13:03]    Conservative : 18,516 
+[2026-02-09 08:13:03]    Business : 1,196 
+[2026-02-09 08:13:03] Catholic subcategories: 
+[2026-02-09 08:13:03]    Official Church : 64,391 
+[2026-02-09 08:13:03]    Catholic Aligned : 18,577 
+[2026-02-09 08:13:03]    Catholic Portals : 9,943 
+[2026-02-09 08:13:03]    Catholic Radio : 4 
+[2026-02-09 08:13:03] Running frame detection (8 count passes)... 
+[2026-02-09 08:15:00]    MORAL_DECAY : 29,077 
+[2026-02-09 08:16:46]    FOREIGN_THREAT : 4,127 
+[2026-02-09 08:18:18]    INSTITUTIONAL_DISTRUST : 125,551 
+[2026-02-09 08:20:22]    TRADITIONAL_VALUES : 260,648 
+[2026-02-09 08:21:58]    SOVEREIGNTY : 15,503 
+[2026-02-09 08:26:08]    CONSPIRACY : 16,606 
+[2026-02-09 08:28:26]    FAITH_DEFENCE : 2,197 
+[2026-02-09 08:30:10]    MEDIA_CRITIQUE : 9,075 
+[2026-02-09 08:30:11] Frame detection complete 
+[2026-02-09 08:30:11] Running actor detection (7 detect passes)... 
+[2026-02-09 08:39:28] Actor detection complete 
+[2026-02-09 08:39:28] Derived indices computed 
+[2026-02-09 08:39:28]   Mean disinfo_alignment: 0.534 
+[2026-02-09 08:39:28]   Mean disinfo_alignment_norm: 8.9 
+[2026-02-09 08:39:45] Subcorpora created: 
+[2026-02-09 08:39:45]   Full corpus (web): 443,138 
+[2026-02-09 08:39:45]   Framed corpus: 310,777 
+[2026-02-09 08:39:45]   Catholic corpus: 92,915 
+[2026-02-09 08:39:45]   Catholic framed: 71,201 
+[2026-02-09 08:45:35] RDS files saved 
+[2026-02-09 08:45:35] Excel summary saved 
+[2026-02-09 08:45:35] Pipeline complete 
+[2026-02-09 08:45:35] All outputs in: C:\Users\lsikic\Luka C\Clanci\Lana dezinfo 

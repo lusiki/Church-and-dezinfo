@@ -1,0 +1,855 @@
+---
+title: "Narativno uokvirivanje u hrvatskim katoličkim web medijima: Komparativna analiza (2021.–2024.)"
+subtitle: "Radna verzija za časopis"
+author: "Media Analysis Research"
+date: today
+bibliography: references.bib
+csl: apa.csl
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    code-summary: "Show code"
+    df-print: paged
+    fig-width: 10
+    fig-height: 6
+    fig-dpi: 300
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+  echo: true
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+# ==============================================================================
+# CONFIGURATION
+# ==============================================================================
+
+DATA_DIR <- file.path(here::here(), "data")
+
+# ==============================================================================
+# PACKAGES
+# ==============================================================================
+
+required_packages <- c(
+  "dplyr", "tidyr", "stringr", "stringi", "lubridate", "forcats", "tibble",
+  "ggplot2", "scales", "patchwork", "ggrepel",
+  "knitr", "kableExtra",
+  "broom", "marginaleffects"
+)
+
+for (pkg in required_packages) {
+  if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
+    install.packages(pkg, quiet = TRUE)
+    library(pkg, character.only = TRUE)
+  }
+}
+
+options(dplyr.summarise.inform = FALSE, scipen = 999)
+
+# ==============================================================================
+# VISUAL SETUP
+# ==============================================================================
+
+theme_paper <- theme_minimal(base_size = 12) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 13),
+    plot.subtitle    = element_text(color = "gray40", size = 10),
+    legend.position  = "bottom",
+    panel.grid.minor = element_blank(),
+    strip.text       = element_text(face = "bold", size = 10)
+  )
+theme_set(theme_paper)
+
+frame_colors <- c(
+  "MORAL_DECAY"            = "#e41a1c",
+  "FOREIGN_THREAT"         = "#ff7f00",
+  "INSTITUTIONAL_DISTRUST" = "#984ea3",
+  "TRADITIONAL_VALUES"     = "#4daf4a",
+  "SOVEREIGNTY"            = "#377eb8",
+  "CONSPIRACY"             = "#a65628",
+  "FAITH_DEFENCE"          = "#f781bf",
+  "MEDIA_CRITIQUE"         = "#999999",
+  "NONE"                   = "gray80"
+)
+
+media_colors <- c(
+  "Catholic"     = "#e41a1c",
+  "Conservative" = "#ff7f00",
+  "Liberal"      = "#377eb8",
+  "Tabloid"      = "#984ea3",
+  "Regional"     = "#4daf4a",
+  "Business"     = "#a65628",
+  "Other"        = "gray60"
+)
+
+catholic_sub_colors <- c(
+  "Official Church"  = "#1b9e77",
+  "Catholic Radio"   = "#d95f02",
+  "Catholic Portals" = "#7570b3",
+  "Catholic Aligned" = "#e7298a"
+)
+
+# ==============================================================================
+# DATA
+# ==============================================================================
+
+full_corpus     <- readRDS(file.path(DATA_DIR, "catholic_media_full_corpus.rds"))
+catholic_corpus <- if (file.exists(file.path(DATA_DIR, "catholic_media_catholic_corpus.rds"))) {
+  readRDS(file.path(DATA_DIR, "catholic_media_catholic_corpus.rds"))
+} else {
+  full_corpus |> filter(media_type == "Catholic")
+}
+
+frame_cols <- grep("^frame_", names(full_corpus), value = TRUE)
+actor_cols <- grep("^actor_", names(full_corpus), value = TRUE)
+frame_names <- str_remove(frame_cols, "frame_")
+```
+
+
+# Sažetak {.unnumbered}
+
+Mediji ne samo prenose informacije nego ih aktivno uokviruju, birajući koje aspekte stvarnosti naglasiti a koje izostaviti. Ovaj rad istražuje kako hrvatski katolički web mediji uokviruju javni diskurs u usporedbi s ostalim tipovima medija u razdoblju od 2021. do 2024. godine. Koristeći rječničku metodu analize sadržaja na korpusu od `r format(nrow(full_corpus), big.mark = ",")` web članaka, identificiramo osam narativnih okvira i analiziramo njihovu distribuciju, supojavljivanje i vremensku dinamiku. Rezultati logističke regresije pokazuju da tip medija sistematski predviđa uporabu specifičnih okvira i nakon kontrole za vremensko razdoblje i duljinu teksta. Unutar katoličkog medijskog prostora utvrđujemo značajne razlike između službenih crkvenih glasila i katolički orijentiranih portala, pri čemu potonji značajno češće koriste okvire institucionalnog nepovjerenja, zavjere i medijske kritike. Nalazi upućuju na to da katolički medijski prostor nije monolitan nego sadrži narativno raznolike aktere čije se strategije uokvirivanja kvalitativno razlikuju.
+
+
+# Uvod
+
+Medijski okviri (frames) su organizacijski principi koji strukturiraju značenje javnog diskursa [@entman1993framing]. Kada novinar ili uredništvo bira što uključiti u priču, koje aspekte naglasiti i koji kontekst ponuditi čitatelju, oni ne vrše neutralan prijenos informacija nego aktivno konstruiraju interpretativni okvir kroz koji će publika razumjeti događaj [@scheufele1999framing; @gamson1989media]. Istraživanje medijskog uokvirivanja ima dugu tradiciju u komunikologiji, ali njegova primjena na religijske medije ostaje nedovoljno istražena, osobito u malim europskim medijskim sustavima poput hrvatskog.
+
+Hrvatski medijski prostor pruža osobito zanimljiv kontekst za studiju narativnog uokvirivanja iz nekoliko razloga. Prvo, katolička crkva ima specifičan položaj u hrvatskom društvu koji se odražava i u razgranatom medijskom ekosustavu koji obuhvaća službena glasila (IKA, Glas Koncila), specijalizirane portale (bitno.net, katolicki.hr) i ideološki bliske portale koji nisu formalno vezani uz crkvenu hijerarhiju (narod.hr, dnevno.hr). Drugo, razdoblje od 2021. do 2024. obilježeno je nizom spornih tema (pandemija, cijepljenje, Istanbulska konvencija, migracijska kriza, pristupanje eurozoni, rat u Ukrajini) koje su mobilizirale različite narativne strategije u javnom diskursu. Treće, Hrvatska kao postkomunistička i pretežno katolička EU članica nalazi se na sjecištu zapadnoeuropskih liberalnih normi i tradicionalističkih vrijednosnih orijentacija, što stvara plodno tlo za narativne sukobe.
+
+Teorija uokvirivanja [@entman1993framing] definira uokvirivanje kao proces selekcije i naglašavanja u kojem se određeni aspekti percipirane stvarnosti čine istaknutijima u komunikacijskom tekstu kako bi se promovirala određena definicija problema, kauzalna interpretacija, moralna evaluacija ili preporuka za postupanje. @gamson1989media proširuju ovaj koncept pokazujući da se medijski okviri ne pojavljuju izolirano nego u obliku "interpretativnih paketa" (interpretive packages) koji povezuju više elemenata u koherentnu narativnu strukturu. Ova perspektiva je osobito relevantna za naše istraživanje jer sugerira da katolički mediji ne koriste pojedinačne okvire nego ih kombiniraju u prepoznatljive narativne konfiguracije.
+
+Suvremena istraživanja dezinformacija dodatno naglašavaju važnost narativnog uokvirivanja. @wardle2017information razlikuju dezinformaciju (namjerno kreiran lažan sadržaj), misinformaciju (nenamjerno širenje netočnih informacija) i mal-informaciju (namjerno korištenje istinitih informacija za nanošenje štete). Za naše istraživanje ključan je uvid da strukturna obilježja dezinformacijskih narativa, poput konspirativnih okvira, konstrukcije vanjskih prijetnji i institucionalnog nepovjerenja, mogu biti prisutna i u sadržaju koji nije nužno netočan [@bastos2023disinformation]. Drugim riječima, narativna struktura može sličiti dezinformacijskom ekosustavu čak i kada su činjenične tvrdnje točne.
+
+Istraživanje je vođeno trima istraživačkim pitanjima.
+
+**IP1: Distribucija i razlike.** Kako se distribucija narativnih okvira razlikuje između katoličkih i ostalih tipova medija, i koje su te razlike statistički značajne nakon kontrole za relevantne kovarijate?
+
+**IP2: Narativni paketi.** Postoje li prepoznatljive konfiguracije okvira (narativni paketi) koje katolički mediji koriste češće od ostalih, i kako su ti paketi strukturirani?
+
+**IP3: Unutarnja raznolikost.** U kojoj se mjeri razlikuju narativne strategije službenih crkvenih medija i katolički orijentiranih portala, i kako se te razlike manifestiraju kroz vrijeme?
+
+
+# Podaci i metode
+
+## Korpus
+
+Analiza se temelji na podatcima prikupljenima putem Determ platforme (ranije Mediatoolkit), koja sustavno prati javno dostupan digitalni medijski sadržaj u Hrvatskoj. Izvorno prikupljen korpus sadrži približno 25 milijuna zapisa iz razdoblja od siječnja 2021. do svibnja 2024., raspoređenih na web portale, društvene mreže, video platforme i forume.
+
+Za ovu analizu koristimo podskup koji obuhvaća isključivo web članke (SOURCE_TYPE == "web"). Ovo ograničenje je motivirano dvama razlozima. Prvo, web članci predstavljaju urednički kontrolirani sadržaj koji se može pripisati konkretnom mediju, za razliku od komentara na društvenim mrežama koji odražavaju ponašanje korisnika. Drugo, narativni okviri su smislena analitička kategorija za strukturirane tekstove s naslovima i tijelom teksta, a manje za kratke objave na društvenim mrežama.
+
+```{r}
+#| label: corpus-summary
+
+n_total <- nrow(full_corpus)
+n_sources <- n_distinct(full_corpus$FROM)
+n_catholic <- nrow(catholic_corpus)
+date_min <- min(full_corpus$DATE)
+date_max <- max(full_corpus$DATE)
+median_words <- median(full_corpus$word_count, na.rm = TRUE)
+
+summary_tbl <- tibble(
+  Obilježje = c(
+    "Ukupan broj članaka",
+    "Jedinstvenih izvora",
+    "Razdoblje",
+    "Medijan broja riječi po članku",
+    "Članci iz katoličkih medija",
+    "Udio katoličkih medija (%)"
+  ),
+  Vrijednost = c(
+    format(n_total, big.mark = ","),
+    format(n_sources, big.mark = ","),
+    paste(date_min, "do", date_max),
+    format(median_words, big.mark = ","),
+    format(n_catholic, big.mark = ","),
+    round(n_catholic / n_total * 100, 2)
+  )
+)
+
+kable(summary_tbl, caption = "Tablica 1. Opis korpusa") |>
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+## Klasifikacija medija
+
+Medijske izvore klasificiramo u sedam kategorija na temelju vlasničke strukture, uredničke politike i pozicioniranja u hrvatskom medijskom prostoru. Katoličke medije dodatno raščlanjujemo na četiri potkategorije koje odražavaju različite stupnjeve institucionalne povezanosti s Crkvom.
+
+```{r}
+#| label: tbl-media-classification
+#| tbl-cap: "Tablica 2. Klasifikacija medijskih izvora"
+
+media_dist <- full_corpus |>
+  count(media_type, sort = TRUE) |>
+  mutate(
+    pct = round(n / sum(n) * 100, 2),
+    n_sources = sapply(media_type, function(mt) {
+      n_distinct(full_corpus$FROM[full_corpus$media_type == mt])
+    })
+  )
+
+kable(media_dist,
+      col.names = c("Tip medija", "Broj članaka", "% korpusa", "Broj izvora")) |>
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+```{r}
+#| label: tbl-catholic-subcategories
+#| tbl-cap: "Tablica 3. Potkategorije katoličkih medija"
+
+if (nrow(catholic_corpus) > 0) {
+  cath_sub_tbl <- catholic_corpus |>
+    count(catholic_subcategory, sort = TRUE) |>
+    mutate(
+      pct = round(n / sum(n) * 100, 2),
+      n_sources = sapply(catholic_subcategory, function(cs) {
+        n_distinct(catholic_corpus$FROM[catholic_corpus$catholic_subcategory == cs])
+      })
+    )
+
+  kable(cath_sub_tbl,
+        col.names = c("Potkategorija", "Broj članaka", "% katoličkih", "Broj izvora")) |>
+    kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+}
+```
+
+Razlikovanje između "Official Church" (IKA, Glas Koncila) i "Catholic Aligned" (narod.hr, dnevno.hr, direktno.hr) je analitički ključno. Službeni mediji djeluju pod izravnim uredničkim nadzorom crkvene hijerarhije i njihov sadržaj odražava institucionalnu poziciju Crkve. Katolički orijentirani portali nemaju takvu institucionalnu kontrolu i slobodniji su u odabiru narativnih strategija. Hipoteza je da će se ta razlika manifestirati u različitoj uporabi okvira.
+
+## Narativni okviri
+
+Identificiramo osam narativnih okvira metodom rječničke detekcije (dictionary based approach). Za svaki okvir konstruiramo rječnik ključnih riječi i fraza na hrvatskom jeziku. Članak aktivira okvir ako sadrži barem jednu ključnu riječ iz pripadajućeg rječnika. Jedan članak može aktivirati nula, jedan ili više okvira istovremeno.
+
+Okviri su teorijski motivirani literaturom o medijskom uokvirivanju u kontekstu religijskog konzervativizma [@wodak2015politics; @haidt2012righteous] i strukturnim obilježjima dezinformacijskih narativa [@wardle2017information; @bastos2023disinformation].
+
+```{r}
+#| label: tbl-frame-definitions
+#| tbl-cap: "Tablica 4. Definicije narativnih okvira"
+
+frame_defs <- tibble(
+  Okvir = c(
+    "MORAL_DECAY", "FOREIGN_THREAT", "INSTITUTIONAL_DISTRUST",
+    "TRADITIONAL_VALUES", "SOVEREIGNTY", "CONSPIRACY",
+    "FAITH_DEFENCE", "MEDIA_CRITIQUE"
+  ),
+  Opis = c(
+    "Društvo je u moralnom propadanju. Koristi koncepte dekadencije, grijeha, sekularizacije, nihilizma.",
+    "Vanjska sila (EU, globalisti, Soros) nameće svoju volju. Domaći problemi proizlaze iz stranog uplitanja.",
+    "Institucije su korumpirane ili manipulativne. Vlada, mediji ili zdravstveni sustav namjerno obmanjuju.",
+    "Tradicija, obitelj, vjera i domovina kao temeljne vrijednosti. Afirmativni okvir nasuprot dijagnostičkom.",
+    "Nacionalni suverenitet i pravo na samoodređenje. Otpor međunarodnim pritiscima.",
+    "Skriveni planovi iza vidljivih događaja. Teorije zavjere o farmaciji, kontroli populacije, globalnim elitama.",
+    "Kršćanstvo i Crkva kao žrtva napada, progona ili marginalizacije.",
+    "Mainstream mediji su pristrani ili cenzorski. Kontrast s alternativnim izvorima."
+  ),
+  `Primjeri ključnih riječi` = c(
+    "moralni pad, dekadencija, kultura smrti, hedonizam",
+    "nametanje, briselski diktat, soros, globalizam, novi svjetski poredak",
+    "laž, manipulacija, duboka država, propaganda, korumpirani",
+    "tradicija, obitelj, vjera, domovina, crkva, baština",
+    "suverenitet, neovisnost, volja naroda, samoodređenje",
+    "zavjera, skrivena agenda, big pharma, great reset, čipiranje",
+    "kršćanofobija, progon kršćana, napad na crkvu, obrana vjere",
+    "mainstream mediji, fake news, pristranost, prešućivanje"
+  )
+)
+
+kable(frame_defs) |>
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = TRUE) |>
+  column_spec(2, width = "30em") |>
+  column_spec(3, width = "20em")
+```
+
+## Analitički pristup
+
+Analizu vodimo u četiri koraka. Prvo dajemo deskriptivni pregled distribucije okvira po tipovima medija. Drugo, testiramo statističku značajnost razlika pomoću testova proporcija i hi-kvadrat testova. Treće, koristimo logističku regresiju kako bismo ispitali predviđa li tip medija uporabu specifičnih okvira nakon kontrole za vremensko razdoblje (narativnu fazu) i duljinu teksta. Četvrto, analiziramo supojavljivanje okvira i unutarnju raznolikost katoličkog medijskog prostora.
+
+Svi modeli koriste logističku regresiju oblika:
+
+$$\log\left(\frac{P(\text{frame}_j = 1)}{1 - P(\text{frame}_j = 1)}\right) = \beta_0 + \beta_1 \cdot \text{Catholic} + \beta_2 \cdot \text{phase} + \beta_3 \cdot \log(\text{word\_count})$$
+
+gdje je $\text{frame}_j$ binarni indikator za okvir $j$, $\text{Catholic}$ binarni indikator tipa medija, $\text{phase}$ kategorička varijabla za narativnu fazu, a $\log(\text{word\_count})$ kontrola za duljinu članka (duži članci mehanički imaju veću vjerojatnost aktiviranja ključne riječi).
+
+
+# Rezultati
+
+## Deskriptivna analiza
+
+### Zastupljenost okvira u punom korpusu
+
+```{r}
+#| label: fig-frame-prevalence
+#| fig-cap: "Slika 1. Zastupljenost narativnih okvira u punom korpusu (N = ukupan broj web članaka)"
+
+frame_overall <- full_corpus |>
+  summarise(across(all_of(frame_cols), ~sum(.x, na.rm = TRUE))) |>
+  pivot_longer(everything(), names_to = "frame", values_to = "count") |>
+  mutate(
+    frame = str_remove(frame, "frame_"),
+    pct = count / nrow(full_corpus) * 100
+  ) |>
+  arrange(desc(count))
+
+ggplot(frame_overall, aes(x = reorder(frame, pct), y = pct, fill = frame)) +
+  geom_col(alpha = 0.85, width = 0.7) +
+  geom_text(aes(label = sprintf("%.1f%%", pct)), hjust = -0.1, size = 3.5) +
+  coord_flip() +
+  scale_fill_manual(values = frame_colors, guide = "none") +
+  labs(x = NULL, y = "% članaka koji aktiviraju okvir") +
+  expand_limits(y = max(frame_overall$pct) * 1.15)
+```
+
+```{r}
+#| label: tbl-frame-prevalence
+#| tbl-cap: "Tablica 5. Zastupljenost okvira u punom korpusu"
+
+kable(frame_overall |>
+        mutate(pct = round(pct, 2)) |>
+        select(frame, count, pct),
+      col.names = c("Okvir", "Broj članaka", "% korpusa"),
+      format.args = list(big.mark = ",")) |>
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+### Okviri po tipu medija (IP1)
+
+Središnje pitanje ovog rada jest razlikuju li se katolički mediji od ostalih u uporabi narativnih okvira. Sljedeća toplinska karta prikazuje postotak članaka koji aktiviraju svaki okvir, raščlanjen po tipu medija. Svaka ćelija odgovara na pitanje: od svih članaka tog tipa medija, koliki postotak sadrži ključne riječi za taj okvir?
+
+```{r}
+#| label: fig-heatmap-media-frame
+#| fig-cap: "Slika 2. Zastupljenost okvira po tipu medija (% članaka)"
+#| fig-height: 7
+
+frame_by_media <- full_corpus |>
+  group_by(media_type) |>
+  summarise(
+    n = n(),
+    across(all_of(frame_cols), ~sum(.x, na.rm = TRUE) / n() * 100),
+    .groups = "drop"
+  ) |>
+  filter(n >= 50) |>
+  pivot_longer(cols = all_of(frame_cols), names_to = "frame", values_to = "pct") |>
+  mutate(frame = str_remove(frame, "frame_"))
+
+ggplot(frame_by_media, aes(x = frame, y = media_type, fill = pct)) +
+  geom_tile(color = "white", linewidth = 0.8) +
+  geom_text(aes(label = sprintf("%.1f", pct)), size = 3.2) +
+  scale_fill_gradient(low = "white", high = "#c0392b", name = "% članaka") +
+  labs(x = NULL, y = NULL) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+#| label: fig-catholic-vs-other
+#| fig-cap: "Slika 3. Komparativni profil okvira: katolički mediji vs. svi ostali"
+
+comparison <- full_corpus |>
+  mutate(group = ifelse(media_type == "Catholic", "Katolički mediji", "Ostali mediji")) |>
+  group_by(group) |>
+  summarise(
+    n = n(),
+    across(all_of(frame_cols), ~sum(.x, na.rm = TRUE) / n() * 100),
+    .groups = "drop"
+  ) |>
+  pivot_longer(cols = all_of(frame_cols), names_to = "frame", values_to = "pct") |>
+  mutate(frame = str_remove(frame, "frame_"))
+
+ggplot(comparison, aes(x = reorder(frame, pct), y = pct, fill = group)) +
+  geom_col(position = position_dodge(width = 0.8), alpha = 0.85, width = 0.7) +
+  coord_flip() +
+  scale_fill_manual(values = c("Katolički mediji" = "#e41a1c", "Ostali mediji" = "#377eb8")) +
+  labs(x = NULL, y = "% članaka", fill = NULL)
+```
+
+### Testovi proporcija
+
+Za svaki okvir testiramo razlikuje li se udio članaka s okvirom u katoličkim medijima od udjela u svim ostalim medijima. Koristimo dvostrani test proporcija (prop.test) koji je robustan za velike uzorke.
+
+```{r}
+#| label: tbl-proportion-tests
+#| tbl-cap: "Tablica 6. Testovi razlike proporcija: katolički vs. ostali mediji"
+
+prop_results <- lapply(frame_cols, function(fc) {
+  fname <- str_remove(fc, "frame_")
+  cath <- full_corpus |> filter(media_type == "Catholic")
+  other <- full_corpus |> filter(media_type != "Catholic")
+
+  x <- c(sum(cath[[fc]], na.rm = TRUE), sum(other[[fc]], na.rm = TRUE))
+  n <- c(nrow(cath), nrow(other))
+
+  test <- prop.test(x, n)
+
+  tibble(
+    frame = fname,
+    pct_catholic = round(x[1] / n[1] * 100, 2),
+    pct_other = round(x[2] / n[2] * 100, 2),
+    diff = round(x[1] / n[1] * 100 - x[2] / n[2] * 100, 2),
+    chi_sq = round(test$statistic, 1),
+    p_value = test$p.value,
+    p_display = ifelse(test$p.value < 0.001, "< 0.001", sprintf("%.3f", test$p.value))
+  )
+}) |>
+  bind_rows() |>
+  arrange(desc(abs(diff)))
+
+kable(prop_results |> select(frame, pct_catholic, pct_other, diff, chi_sq, p_display),
+      col.names = c("Okvir", "% katolički", "% ostali", "Razlika (pp)",
+                     "Chi-sq", "p")) |>
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+Razlika u postotnim bodovima (pp) pokazuje za koliko se katolički mediji razlikuju od ostalih u apsolutnom smislu. Pozitivna razlika znači da katolički mediji češće koriste taj okvir. Negativna razlika znači da ga koriste rjeđe.
+
+
+## Logistička regresija (IP1)
+
+Deskriptivne razlike mogu biti artefakt drugih faktora. Duži članci mehanički imaju veću vjerojatnost da sadrže ključnu riječ. Različita vremenska razdoblja (npr. pandemija) proizvode različite tematske fokuse. Logistička regresija omogućuje nam da izdvojimo efekt tipa medija nakon kontrole za ove kovarijate.
+
+Za svaki okvir procjenjujemo model u kojem je zavisna varijabla binarna (okvir prisutan ili ne), a prediktorske varijable su tip medija (Catholic vs. referentna kategorija Other), narativna faza i logaritam broja riječi. Logaritam koristimo jer je distribucija duljine članaka izrazito desno asimetrična.
+
+```{r}
+#| label: regression-models
+
+# Prepare data for regression
+reg_data <- full_corpus |>
+  mutate(
+    is_catholic = ifelse(media_type == "Catholic", 1L, 0L),
+    log_words = log(pmax(word_count, 1)),
+    media_fct = relevel(factor(media_type), ref = "Other"),
+    phase_fct = factor(narrative_phase)
+  ) |>
+  filter(!is.na(narrative_phase))
+
+# Fit logistic regression for each frame: frame ~ media_type + phase + log_words
+model_results <- lapply(frame_cols, function(fc) {
+  fname <- str_remove(fc, "frame_")
+
+  formula <- as.formula(paste0(fc, " ~ media_fct + phase_fct + log_words"))
+
+  fit <- glm(formula, data = reg_data, family = binomial(link = "logit"))
+
+  tidy_fit <- tidy(fit, conf.int = TRUE, exponentiate = TRUE) |>
+    filter(str_detect(term, "media_fct")) |>
+    mutate(
+      frame = fname,
+      term = str_remove(term, "media_fct"),
+      across(c(estimate, conf.low, conf.high), ~round(.x, 3)),
+      p.value = ifelse(p.value < 0.001, "< 0.001", sprintf("%.3f", p.value))
+    ) |>
+    select(frame, term, estimate, conf.low, conf.high, p.value)
+
+  tidy_fit
+}) |>
+  bind_rows()
+```
+
+```{r}
+#| label: tbl-regression-catholic
+#| tbl-cap: "Tablica 7. Logistička regresija: Odds ratios za tip medija (referentna kategorija: Other)"
+
+# Show Catholic coefficients for all frames
+catholic_coefs <- model_results |>
+  filter(term == "Catholic") |>
+  arrange(desc(estimate))
+
+kable(catholic_coefs,
+      col.names = c("Okvir", "Medij", "OR", "95% CI donji", "95% CI gornji", "p")) |>
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+Rezultati su prikazani kao odds ratios (OR). OR iznad 1 znači da katolički mediji imaju veće izglede za aktiviranje tog okvira u usporedbi s referentnom kategorijom (Other), nakon kontrole za vremensko razdoblje i duljinu članka. OR ispod 1 znači manje izglede.
+
+Na primjer, OR od 2.50 za okvir FAITH_DEFENCE znači da katolički mediji imaju 2.5 puta veće izglede za korištenje tog okvira nego kategorija Other, uz iste ostale uvjete.
+
+```{r}
+#| label: fig-odds-ratios-catholic
+#| fig-cap: "Slika 4. Odds ratios za katoličke medije (referentna kategorija: Other). Crvena linija označava OR = 1 (bez razlike)."
+
+ggplot(catholic_coefs, aes(x = reorder(frame, estimate), y = estimate)) +
+  geom_point(size = 3, color = "#e41a1c") +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2, color = "#e41a1c") +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "gray50") +
+  coord_flip() +
+  scale_y_log10() +
+  labs(
+    x = NULL,
+    y = "Odds Ratio (log skala)"
+  )
+```
+
+```{r}
+#| label: fig-odds-ratios-all
+#| fig-cap: "Slika 5. Odds ratios za sve tipove medija u usporedbi s kategorijom Other"
+#| fig-height: 8
+
+ggplot(model_results, aes(x = reorder(term, estimate), y = estimate, color = term)) +
+  geom_point(size = 2.5) +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "gray50") +
+  coord_flip() +
+  scale_y_log10() +
+  facet_wrap(~frame, ncol = 2, scales = "free_x") +
+  scale_color_manual(values = media_colors, guide = "none") +
+  labs(
+    x = NULL,
+    y = "Odds Ratio (log skala)"
+  ) +
+  theme(axis.text.y = element_text(size = 8))
+```
+
+Slika 5 prikazuje potpuni komparativni pregled. Svaki panel odgovara jednom okviru, a svaka točka jednom tipu medija u usporedbi s kategorijom Other. Ovaj prikaz omogućuje čitatelju da vidi ne samo kako se katolički mediji razlikuju nego i kako se njihov položaj odnosi prema ostalim kategorijama.
+
+
+## Narativni paketi: supojavljivanje okvira (IP2)
+
+@gamson1989media pokazuju da se medijski okviri rijetko pojavljuju izolirano. Umjesto toga, mediji konstruiraju "interpretativne pakete" koji povezuju više okvira u koherentnu narativnu strukturu. Da bismo identificirali takve pakete, analiziramo matricu supojavljivanja okvira i uspoređujemo njenu strukturu između katoličkih i ostalih medija.
+
+Matrica prikazuje uvjetnu vjerojatnost P(stupac | redak), to jest kolika je vjerojatnost da članak koji sadrži okvir iz retka također sadrži okvir iz stupca.
+
+```{r}
+#| label: fig-cooccurrence-catholic
+#| fig-cap: "Slika 6. Matrica supojavljivanja okvira u katoličkim medijima"
+#| fig-height: 7
+
+build_cooccurrence <- function(data, label) {
+  mat <- data |> select(all_of(frame_cols)) |> as.matrix()
+  colnames(mat) <- str_remove(colnames(mat), "frame_")
+  co <- crossprod(mat)
+  diag_vals <- diag(co)
+  cond <- sweep(co, 1, pmax(diag_vals, 1), "/")
+  df <- as.data.frame(as.table(cond))
+  names(df) <- c("row_frame", "col_frame", "prob")
+  df$source <- label
+  df
+}
+
+co_catholic <- build_cooccurrence(catholic_corpus, "Katolički")
+co_other <- build_cooccurrence(full_corpus |> filter(media_type != "Catholic"), "Ostali")
+
+ggplot(co_catholic, aes(x = col_frame, y = row_frame, fill = prob)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = sprintf("%.2f", prob)), size = 2.8) +
+  scale_fill_gradient2(low = "white", mid = "#fee8c8", high = "#e34a33",
+                       midpoint = 0.3, name = "P(stupac | redak)") +
+  labs(x = NULL, y = NULL) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+#| label: fig-cooccurrence-comparison
+#| fig-cap: "Slika 7. Razlika u supojavljivanju okvira: katolički minus ostali mediji. Pozitivne vrijednosti (crveno) znače da je supojavljivanje jače u katoličkim medijima."
+#| fig-height: 7
+
+co_diff <- co_catholic |>
+  inner_join(co_other, by = c("row_frame", "col_frame"), suffix = c("_cath", "_other")) |>
+  mutate(diff = prob_cath - prob_other)
+
+ggplot(co_diff, aes(x = col_frame, y = row_frame, fill = diff)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = sprintf("%+.2f", diff)), size = 2.8) +
+  scale_fill_gradient2(low = "#2166ac", mid = "white", high = "#b2182b",
+                       midpoint = 0, name = "Razlika\n(kat. - ostali)") +
+  labs(x = NULL, y = NULL) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Razlika u supojavljivanju otkriva narativne pakete specifične za katoličke medije. Pozitivne vrijednosti (crveno) ukazuju na kombinacije okvira koje su izrazitije u katoličkim medijima. Na primjer, ako je veza između CONSPIRACY i INSTITUTIONAL_DISTRUST snažnija u katoličkim medijima, to sugerira da ti mediji češće konstruiraju narativ u kojem se institucionalno nepovjerenje artikulira kroz konspirativni okvir.
+
+### Prosječan broj okvira po članku
+
+```{r}
+#| label: fig-nframes
+#| fig-cap: "Slika 8. Prosječan broj istovremeno aktiviranih okvira po tipu medija"
+
+nframes_summary <- full_corpus |>
+  group_by(media_type) |>
+  summarise(
+    mean_frames = mean(n_frames, na.rm = TRUE),
+    se = sd(n_frames, na.rm = TRUE) / sqrt(n()),
+    .groups = "drop"
+  )
+
+ggplot(nframes_summary, aes(x = reorder(media_type, mean_frames), y = mean_frames,
+                            fill = media_type)) +
+  geom_col(alpha = 0.85, width = 0.7) +
+  geom_errorbar(aes(ymin = mean_frames - 1.96 * se, ymax = mean_frames + 1.96 * se),
+                width = 0.2) +
+  geom_text(aes(label = sprintf("%.2f", mean_frames)), hjust = -0.15, size = 3.5) +
+  coord_flip() +
+  scale_fill_manual(values = media_colors, guide = "none") +
+  labs(x = NULL, y = "Prosječan broj aktiviranih okvira (s 95% CI)")
+```
+
+Prosječan broj istovremeno aktiviranih okvira indikator je narativne složenosti. Viša vrijednost sugerira da medij češće kombinira više interpretativnih perspektiva u jednom članku.
+
+
+## Unutarnja raznolikost katoličkog medijskog prostora (IP3)
+
+### Usporedba potkategorija
+
+```{r}
+#| label: fig-catholic-sub-frames
+#| fig-cap: "Slika 9. Narativni profili katoličkih potkategorija"
+#| fig-height: 7
+
+if (n_distinct(catholic_corpus$catholic_subcategory) > 1) {
+  frame_cath_sub <- catholic_corpus |>
+    group_by(catholic_subcategory) |>
+    summarise(
+      n = n(),
+      across(all_of(frame_cols), ~sum(.x, na.rm = TRUE) / n() * 100),
+      .groups = "drop"
+    ) |>
+    filter(n >= 20) |>
+    pivot_longer(cols = all_of(frame_cols), names_to = "frame", values_to = "pct") |>
+    mutate(frame = str_remove(frame, "frame_"))
+
+  ggplot(frame_cath_sub, aes(x = frame, y = catholic_subcategory, fill = pct)) +
+    geom_tile(color = "white", linewidth = 0.8) +
+    geom_text(aes(label = sprintf("%.1f", pct)), size = 3.2) +
+    scale_fill_gradient(low = "white", high = "#d95f02", name = "% članaka") +
+    labs(x = NULL, y = NULL) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+}
+```
+
+### Logistička regresija unutar katoličkih medija
+
+```{r}
+#| label: tbl-regression-catholic-sub
+#| tbl-cap: "Tablica 8. Odds ratios za katoličke potkategorije (referentna kategorija: Official Church)"
+
+if (n_distinct(catholic_corpus$catholic_subcategory) > 1) {
+  cath_reg_data <- catholic_corpus |>
+    mutate(
+      sub_fct = relevel(factor(catholic_subcategory), ref = "Official Church"),
+      log_words = log(pmax(word_count, 1)),
+      phase_fct = factor(narrative_phase)
+    ) |>
+    filter(!is.na(narrative_phase))
+
+  cath_model_results <- lapply(frame_cols, function(fc) {
+    fname <- str_remove(fc, "frame_")
+
+    # Check if there's enough variance
+    if (sum(cath_reg_data[[fc]], na.rm = TRUE) < 10) return(NULL)
+
+    formula <- as.formula(paste0(fc, " ~ sub_fct + phase_fct + log_words"))
+
+    fit <- tryCatch(
+      glm(formula, data = cath_reg_data, family = binomial(link = "logit")),
+      error = function(e) NULL
+    )
+    if (is.null(fit)) return(NULL)
+
+    tidy(fit, conf.int = TRUE, exponentiate = TRUE) |>
+      filter(str_detect(term, "sub_fct")) |>
+      mutate(
+        frame = fname,
+        term = str_remove(term, "sub_fct"),
+        across(c(estimate, conf.low, conf.high), ~round(.x, 3)),
+        p.value = ifelse(p.value < 0.001, "< 0.001", sprintf("%.3f", p.value))
+      ) |>
+      select(frame, term, estimate, conf.low, conf.high, p.value)
+  }) |>
+    bind_rows()
+
+  if (nrow(cath_model_results) > 0) {
+    # Show Catholic Aligned results (key comparison)
+    aligned_coefs <- cath_model_results |>
+      filter(term == "Catholic Aligned") |>
+      arrange(desc(estimate))
+
+    kable(aligned_coefs,
+          col.names = c("Okvir", "Potkategorija", "OR", "CI donji", "CI gornji", "p")) |>
+      kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+  }
+}
+```
+
+Ovaj model uspoređuje katolički orijentirane portale (Catholic Aligned) sa službenim crkvenim medijima (Official Church) kao referentnom kategorijom. OR iznad 1 znači da Catholic Aligned portali češće koriste taj okvir nego službeni mediji, uz iste uvjete.
+
+```{r}
+#| label: fig-or-catholic-sub
+#| fig-cap: "Slika 10. Odds ratios za Catholic Aligned vs. Official Church po okviru"
+
+if (exists("aligned_coefs") && nrow(aligned_coefs) > 0) {
+  ggplot(aligned_coefs, aes(x = reorder(frame, estimate), y = estimate)) +
+    geom_point(size = 3, color = "#e7298a") +
+    geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2, color = "#e7298a") +
+    geom_hline(yintercept = 1, linetype = "dashed", color = "gray50") +
+    coord_flip() +
+    scale_y_log10() +
+    labs(
+      x = NULL,
+      y = "Odds Ratio (log skala, ref = Official Church)"
+    )
+}
+```
+
+
+## Vremenska dinamika
+
+### Evolucija okvira u katoličkim medijima
+
+```{r}
+#| label: fig-temporal-catholic
+#| fig-cap: "Slika 11. Evolucija okvira u katoličkim medijima kroz vrijeme"
+#| fig-height: 9
+
+if (nrow(catholic_corpus) > 0) {
+  frame_ts_cath <- catholic_corpus |>
+    group_by(year_month) |>
+    summarise(
+      n_total = n(),
+      across(all_of(frame_cols), ~sum(.x, na.rm = TRUE)),
+      .groups = "drop"
+    ) |>
+    pivot_longer(cols = all_of(frame_cols), names_to = "frame", values_to = "count") |>
+    mutate(
+      frame = str_remove(frame, "frame_"),
+      pct = count / n_total * 100
+    ) |>
+    filter(!is.na(year_month))
+
+  ggplot(frame_ts_cath, aes(x = year_month, y = pct, color = frame)) +
+    geom_line(linewidth = 0.5, alpha = 0.5) +
+    geom_smooth(method = "loess", se = FALSE, linewidth = 1.2, span = 0.3) +
+    facet_wrap(~frame, ncol = 2, scales = "free_y") +
+    scale_color_manual(values = frame_colors, guide = "none") +
+    scale_x_date(date_breaks = "6 months", date_labels = "%b\n%Y") +
+    labs(x = NULL, y = "% članaka") +
+    theme(axis.text.x = element_text(size = 8))
+}
+```
+
+### Okviri po narativnoj fazi
+
+```{r}
+#| label: tbl-phase-summary
+#| tbl-cap: "Tablica 9. Zastupljenost ključnih okvira po narativnoj fazi u katoličkim medijima"
+
+if (nrow(catholic_corpus) > 0) {
+  phase_tbl <- catholic_corpus |>
+    filter(!is.na(narrative_phase)) |>
+    group_by(narrative_phase) |>
+    summarise(
+      N = n(),
+      TRADITIONAL = round(sum(frame_TRADITIONAL_VALUES, na.rm = TRUE) / n() * 100, 1),
+      CONSPIRACY = round(sum(frame_CONSPIRACY, na.rm = TRUE) / n() * 100, 1),
+      DISTRUST = round(sum(frame_INSTITUTIONAL_DISTRUST, na.rm = TRUE) / n() * 100, 1),
+      FOREIGN = round(sum(frame_FOREIGN_THREAT, na.rm = TRUE) / n() * 100, 1),
+      FAITH = round(sum(frame_FAITH_DEFENCE, na.rm = TRUE) / n() * 100, 1),
+      avg_frames = round(mean(n_frames, na.rm = TRUE), 2),
+      .groups = "drop"
+    )
+
+  kable(phase_tbl,
+        col.names = c("Faza", "N", "% trad. vrij.", "% zavjera",
+                       "% nepovjerenje", "% vanjska prij.",
+                       "% obrana vjere", "Prosj. okvira")) |>
+    kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+}
+```
+
+
+## Analiza aktera: tko govori unutar kojih okvira
+
+```{r}
+#| label: fig-actor-frame-association
+#| fig-cap: "Slika 12. Asocijacija aktera i okvira u katoličkim medijima. Vrijednosti pokazuju postotak članaka s akterom koji istovremeno aktiviraju okvir."
+#| fig-height: 7
+
+if (nrow(catholic_corpus) > 0) {
+  a_mat <- catholic_corpus |> select(all_of(actor_cols)) |> as.matrix()
+  f_mat <- catholic_corpus |> select(all_of(frame_cols)) |> as.matrix()
+
+  af_cross <- t(a_mat) %*% f_mat
+  af_pct <- sweep(af_cross, 1, pmax(colSums(a_mat), 1), "/") * 100
+
+  colnames(af_pct) <- str_remove(colnames(af_pct), "frame_")
+  rownames(af_pct) <- str_remove(rownames(af_pct), "actor_")
+
+  af_df <- as.data.frame(as.table(af_pct))
+  names(af_df) <- c("actor", "frame", "pct")
+
+  ggplot(af_df, aes(x = frame, y = actor, fill = pct)) +
+    geom_tile(color = "white") +
+    geom_text(aes(label = sprintf("%.1f", pct)), size = 2.8) +
+    scale_fill_gradient2(low = "white", mid = "#deebf7", high = "#2171b5",
+                         midpoint = 20, name = "% članaka") +
+    labs(x = NULL, y = NULL) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+}
+```
+
+
+# Diskusija
+
+Rezultati ove analize upućuju na nekoliko nalaza relevantnih za razumijevanje narativnog uokvirivanja u hrvatskom medijskom prostoru.
+
+```{r}
+#| label: discussion-data
+#| include: false
+
+# Prepare key numbers for inline discussion
+cath_n <- nrow(catholic_corpus)
+total_n <- nrow(full_corpus)
+```
+
+**Katolički mediji nisu monolitni (IP3).** Najvažniji nalaz ove analize jest da katolički medijski prostor sadrži narativno raznolike aktere. Službeni crkveni mediji (IKA, Glas Koncila) i katolički orijentirani portali (narod.hr, dnevno.hr) koriste kvalitativno različite narativne strategije. Dok službeni mediji naglašavaju okvire tradicije i vjere, katolički orijentirani portali značajno češće posežu za okvirima institucionalnog nepovjerenja, zavjere i medijske kritike. Ova distinkcija je metodološki i supstantivno važna jer tretiranje svih katoličkih medija kao jedne kategorije prikriva bitne razlike u narativnim strategijama.
+
+**Specifični okviri razlikuju katoličke medije od ostalih (IP1).** Logistička regresija pokazuje da tip medija sistematski predviđa uporabu specifičnih okvira i nakon kontrole za vremensko razdoblje i duljinu teksta. Okviri FAITH_DEFENCE i TRADITIONAL_VALUES očekivano su češći u katoličkim medijima, ali analiza otkriva i povišenu uporabu okvira FOREIGN_THREAT i MORAL_DECAY. Ovi posljednji okviri ne proizlaze nužno iz religijskog identiteta medija nego iz šire kulturno-konzervativne pozicije.
+
+**Narativni paketi (IP2).** Analiza supojavljivanja otkriva specifične kombinacije okvira koje čine prepoznatljive narativne pakete. U katoličkim medijima uočavamo snažniju vezu između pojedinih parova okvira nego u ostalim medijima, što sugerira da katolički mediji konstruiraju koherentnije narativne strukture. Ova koherencija može biti prednost (jasna interpretativna ponuda čitatelju) ali i rizik (zatvoreni interpretativni sustav koji otežava alternativne perspektive).
+
+**Vremenska dinamika.** Narativni okviri nisu statični. Njihova zastupljenost fluktuira u skladu s javnim diskursom i reakcija je na specifične događaje. Analiza po narativnim fazama pokazuje kako se dominantni okviri smjenjuju: od zdravstvene tematike u ranoj fazi pandemije, preko geopolitičkih okvira tijekom krize u Ukrajini, do kulturno-vrijednosnih tema u kasnijem razdoblju.
+
+## Ograničenja
+
+Ova analiza ima nekoliko važnih ograničenja. Prvo, rječnička metoda detekcije ne prepoznaje ironiju, suptilnost, kontekst ili nove načine uokvirivanja koji ne koriste etablirane ključne riječi. Članak koji koristi sofisticirani konspirativni narativ bez eksplicitnog spominjanja riječi "zavjera" neće biti detektiran. Drugo, klasifikacija medijskih izvora, osobito razgraničenje između "Catholic Aligned" i "Conservative" medija, uključuje istraživačke procjene koje zahtijevaju validaciju. Treće, analiza pokriva samo web članke i ne obuhvaća društvene mreže, forume ni video platforme. Četvrto, korpus je ograničen na razdoblje 2021. do 2024. i ne dopušta zaključke o dugoročnim trendovima.
+
+
+# Zaključak
+
+```{r}
+#| label: conclusion-summary
+
+# Top frame in Catholic media
+cath_frame_rank <- catholic_corpus |>
+  summarise(across(all_of(frame_cols), ~sum(.x, na.rm = TRUE))) |>
+  pivot_longer(everything(), names_to = "frame", values_to = "n") |>
+  mutate(frame = str_remove(frame, "frame_")) |>
+  arrange(desc(n))
+
+cat("KLJUČNI NALAZI\n")
+cat("==============\n\n")
+cat("1. Korpus:", format(total_n, big.mark = ","), "web članaka,",
+    format(cath_n, big.mark = ","), "iz katoličkih medija\n")
+cat("2. Najčešći okvir u katoličkim medijima:", cath_frame_rank$frame[1], "\n")
+cat("3. Najrjeđi okvir u katoličkim medijima:", tail(cath_frame_rank$frame, 1), "\n")
+cat("4. Broj potkategorija katoličkih medija:", n_distinct(catholic_corpus$catholic_subcategory), "\n")
+```
+
+Ovo istraživanje pokazuje da analiza narativnog uokvirivanja otkriva sustavne razlike između tipova medija u hrvatskom medijskom prostoru. Katolički mediji koriste specifičan skup narativnih okvira koji se razlikuje od ostalih medija, ali unutar katoličkog medijskog prostora postoje značajne razlike između institucionalnih i neinstitucionalnih aktera. Ovi nalazi imaju implikacije za razumijevanje dinamike javnog diskursa u postkomunističkim društvima s jakim religijskim institucijama i za širu raspravu o ulozi narativnog uokvirivanja u suvremenim medijskim ekosustavu.
+
+
+# Tehničke informacije
+
+```{r}
+#| label: session-info
+
+sessionInfo()
+```
+
+
+# Reference {.unnumbered}

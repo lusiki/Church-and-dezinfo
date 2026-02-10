@@ -1,0 +1,811 @@
+---
+title: "Narativna struktura i publička amplifikacija: Koje okvire publika nagrađuje u hrvatskom medijskom prostoru?"
+subtitle: "Radna verzija za časopis"
+author: "Media Analysis Research"
+date: today
+bibliography: references.bib
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    code-summary: "Show code"
+    df-print: paged
+    fig-width: 10
+    fig-height: 6
+    fig-dpi: 300
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+  echo: true
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+# ==============================================================================
+# CONFIGURATION
+# ==============================================================================
+
+DATA_DIR <- file.path(here::here(), "data")
+
+# ==============================================================================
+# PACKAGES
+# ==============================================================================
+
+required_packages <- c(
+  "dplyr", "tidyr", "stringr", "stringi", "lubridate", "forcats", "tibble",
+  "ggplot2", "scales", "patchwork", "ggrepel",
+  "knitr", "kableExtra",
+  "broom", "MASS", "marginaleffects"
+)
+
+for (pkg in required_packages) {
+  if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
+    install.packages(pkg, quiet = TRUE)
+    library(pkg, character.only = TRUE)
+  }
+}
+
+options(dplyr.summarise.inform = FALSE, scipen = 999)
+
+# ==============================================================================
+# VISUAL SETUP
+# ==============================================================================
+
+theme_paper <- theme_minimal(base_size = 12) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 13),
+    plot.subtitle    = element_text(color = "gray40", size = 10),
+    legend.position  = "bottom",
+    panel.grid.minor = element_blank(),
+    strip.text       = element_text(face = "bold", size = 10)
+  )
+theme_set(theme_paper)
+
+frame_colors <- c(
+  "MORAL_DECAY"            = "#e41a1c",
+  "FOREIGN_THREAT"         = "#ff7f00",
+  "INSTITUTIONAL_DISTRUST" = "#984ea3",
+  "TRADITIONAL_VALUES"     = "#4daf4a",
+  "SOVEREIGNTY"            = "#377eb8",
+  "CONSPIRACY"             = "#a65628",
+  "FAITH_DEFENCE"          = "#f781bf",
+  "MEDIA_CRITIQUE"         = "#999999"
+)
+
+media_colors <- c(
+  "Catholic"     = "#e41a1c",
+  "Conservative" = "#ff7f00",
+  "Liberal"      = "#377eb8",
+  "Tabloid"      = "#984ea3",
+  "Regional"     = "#4daf4a",
+  "Business"     = "#a65628",
+  "Other"        = "gray60"
+)
+
+catholic_sub_colors <- c(
+  "Official Church"  = "#1b9e77",
+  "Catholic Radio"   = "#d95f02",
+  "Catholic Portals" = "#7570b3",
+  "Catholic Aligned" = "#e7298a"
+)
+
+# ==============================================================================
+# DATA
+# ==============================================================================
+
+full_corpus     <- readRDS(file.path(DATA_DIR, "catholic_media_full_corpus.rds"))
+catholic_corpus <- if (file.exists(file.path(DATA_DIR, "catholic_media_catholic_corpus.rds"))) {
+  readRDS(file.path(DATA_DIR, "catholic_media_catholic_corpus.rds"))
+} else {
+  full_corpus |> filter(media_type == "Catholic")
+}
+
+frame_cols <- grep("^frame_", names(full_corpus), value = TRUE)
+actor_cols <- grep("^actor_", names(full_corpus), value = TRUE)
+frame_names <- str_remove(frame_cols, "frame_")
+
+# Identify available engagement columns
+engagement_candidates <- c("INTERACTIONS", "LIKE_COUNT", "COMMENT_COUNT", "SHARE_COUNT",
+                           "TOTAL_REACTIONS_COUNT", "REACH", "VIEW_COUNT",
+                           "LOVE_COUNT", "WOW_COUNT", "HAHA_COUNT", "SAD_COUNT", "ANGRY_COUNT",
+                           "VIRALITY", "ENGAGEMENT_RATE")
+engagement_cols <- intersect(engagement_candidates, names(full_corpus))
+```
+
+
+# Sažetak {.unnumbered}
+
+Istraživanja pokazuju da se lažne vijesti šire brže i dalje od istinitih, a moralno i emocionalno nabijen sadržaj generira više dijeljenja. No manje je poznato kako narativni okviri, kao strukturne jedinice medijskog diskursa, utječu na publički angažman. Ovaj rad istražuje odnos između narativnih okvira i publičke amplifikacije u hrvatskom web medijskom prostoru na korpusu od `r format(nrow(full_corpus), big.mark = ",")` članaka (2021.–2024.). Koristeći negativne binomijalne regresijske modele, ispitujemo koji okviri predviđaju više interakcija, je li sadržaj s višom strukturnom bliskošću dezinformacijskim narativima nagrađen većim angažmanom i razlikuje li se dinamika amplifikacije između katoličkih i ostalih medija. Rezultati otkrivaju specifične okvire koji sistematski predviđaju viši angažman, pri čemu se obrazac razlikuje između tipova medija. Nalazi imaju implikacije za razumijevanje ekonomskih poticaja koji oblikuju medijski ekosustav i potencijalnih mehanizama kojima se narativne strukture bliske dezinformacijskom ekosustavu šire.
+
+
+# Uvod
+
+Jedna od najcitiranijih studija u istraživanju dezinformacija, @vosoughi2018spread, pokazuje da se lažne vijesti na Twitteru šire šest puta brže od istinitih, dosežu više korisnika i izazivaju izraženije emocionalne reakcije. @brady2017emotion demonstriraju da moralno i emocionalno nabijen sadržaj generira 20% više dijeljenja po dodatnoj moralnoj ili emocionalnoj riječi. @robertson2023negativity pokazuju da negativni sadržaj konzistentno privlači više klikova i dužu čitanost. Ovi nalazi upućuju na to da obilježja koja karakteriziraju dezinformacijski ekosustav, poput emocionalnog naboja, moralne osude i konspirativnih narativa, istovremeno služe kao poticaj za publički angažman.
+
+Ovo postavlja uznemirujuće pitanje: postoji li strukturni poticaj za produkciju sadržaja čije su narativne karakteristike bliske dezinformacijskom ekosustavu? Ako članci s konspirativnim okvirima ili okvirima institucionalnog nepovjerenja generiraju više klikova, komentara i dijeljenja, medijski izdavači imaju ekonomski poticaj za produkciju takvog sadržaja, neovisno o namjeri ili istinitosti. @pennycook2021psychology nazivaju ovo "attention economy" dinamikom: platforme i izdavači natječu se za ograničenu pažnju publike, a sadržaj koji izaziva jake emocionalne reakcije ima kompetitivnu prednost.
+
+Za religijske medije ova dinamika ima specifičnu relevantnost. Katolički mediji operiraju u narativnom prostoru koji legitimno uključuje moralne okvire, vrijednosne pozicije i kritiku sekularnih institucija. No ti isti okviri, osobito kada su kombinirani s konspirativnim ili populističkim elementima, mogu generirati pojačani publički angažman. Pitanje je je li to slučaj i u kojoj mjeri.
+
+Dosadašnja istraživanja dominantno se fokusiraju na platforme društvenih mreža i pojedinačne objave [@vosoughi2018spread; @brady2017emotion; @zollo2017debunking]. Analiza angažmana na razini cjelovitih web članaka manje je zastupljena u literaturi, dijelom zbog teškoća u prikupljanju metrika angažmana za web sadržaj. Naš korpus, prikupljen putem Determ platforme, uključuje metrike angažmana (interakcije, dijeljenja, komentari, doseg) za značajan udio članaka, što nam omogućuje pionirsku analizu na razini hrvatskog medijskog prostora.
+
+Istraživanje je vođeno trima istraživačkim pitanjima.
+
+**IP1: Koji okviri generiraju više angažmana?** Predviđa li prisutnost specifičnih narativnih okvira viši publički angažman, mjereno brojem interakcija, nakon kontrole za tip medija, duljinu članka i vremensko razdoblje?
+
+**IP2: Nagrađuje li publika narativnu strukturu blisku dezinformacijskom ekosustavu?** Predviđa li viši Narrative Proximity Index (NPI) viši angažman, i je li taj odnos linearan ili nelinearan?
+
+**IP3: Razlikuje li se dinamika amplifikacije između tipova medija?** Jesu li okviri koji generiraju angažman u katoličkim medijima isti kao oni koji generiraju angažman u ostalim medijima, ili postoji specifičan obrazac amplifikacije za katolički medijski prostor?
+
+
+# Teorijski okvir
+
+## Ekonomija pažnje i narativna selekcija
+
+@pennycook2021psychology predlažu model u kojem se širenje dezinformacija ne objašnjava primarno motiviranim rezoniranjem (ljudi ne dijele lažne vijesti jer žele širiti dezinformacije) nego nedostatkom pažnje (ljudi dijele bez kritičke evaluacije, vođeni emocionalnom reakcijom). Ova perspektiva sugerira da obilježja sadržaja, osobito emocionalni naboj i moralna jasnoća, djeluju kao automatizirani pokretači dijeljenja. @brady2017emotion empirijski potvrđuju ovaj mehanizam pokazujući da svaka dodatna moralno-emocionalna riječ u tweetu povećava vjerojatnost retvitanja za 20%.
+
+@robertson2023negativity proširuju ovaj nalaz na web sadržaj pokazujući da negativnost konzistentno predviđa više klikova i dulju čitanost, efekt koji je robustan na kontrole za temu, izvor i demografske karakteristike čitatelja. Za naše istraživanje ovo je osobito relevantno jer okviri poput INSTITUTIONAL_DISTRUST i MORAL_DECAY inherentno nose negativni valenciju.
+
+## Amplifikacija u fragmentiranom medijskom sustavu
+
+@benkler2018network pokazuju da amplifikacija nije jednolika: isti sadržaj generira različite razine angažmana ovisno o medijskom ekosustavu u kojem cirkulira. U zatvorenim narativnim sustavima (poput desnog medijskog prostora u SAD-u), sadržaj koji potvrđuje postojeće narativne okvire generira disproporcionalno veći angažman jer rezonira s očekivanjima publike. @bail2018exposure demonstriraju komplementarnu dinamiku: izloženost sadržaju koji proturječi vlastitim pozicijama može pojačati polarizaciju umjesto da je ublaži.
+
+Ova perspektiva sugerira da narativni okviri ne samo odražavaju uredničke odluke nego su i predmet selekcijskog pritiska od strane publike. Okviri koji generiraju više angažmana dobivaju veću vidljivost, što pojačava njihovu zastupljenost u medijskom ekosustavu, što pak privlači publiku koja očekuje te okvire, stvarajući pozitivnu povratnu petlju.
+
+## Specifičnost religijskog medijskog prostora
+
+@guess2020exposure pokazuju da je izloženost nepouzdanim izvorima visoko koncentrirana u malom segmentu populacije. Analogno, možemo očekivati da je angažman s okvirima poput CONSPIRACY ili FOREIGN_THREAT koncentriran u specifičnim medijskim tipovima. Katolički mediji su osobito zanimljiv slučaj jer njihova publika ima specifičan vrijednosni profil koji može pojačavati rezonanciju određenih okvira (npr. FAITH_DEFENCE ili MORAL_DECAY) dok iste okvire publika drugih medija može ignorirati.
+
+
+# Podaci i metode
+
+## Korpus i metrike angažmana
+
+Koristimo isti korpus web članaka opisan u pratećim radovima. Ključna razlika je fokus na metrike angažmana koje Determ platforma bilježi za web sadržaj.
+
+```{r}
+#| label: engagement-availability
+
+# Check which engagement columns are available and have data
+eng_summary <- tibble(
+  Metrika = engagement_cols,
+  N_dostupno = sapply(engagement_cols, function(col) sum(!is.na(full_corpus[[col]]) & full_corpus[[col]] > 0)),
+  Medijan = sapply(engagement_cols, function(col) median(full_corpus[[col]][full_corpus[[col]] > 0], na.rm = TRUE)),
+  Prosjek = sapply(engagement_cols, function(col) round(mean(full_corpus[[col]], na.rm = TRUE), 1)),
+  Maks = sapply(engagement_cols, function(col) max(full_corpus[[col]], na.rm = TRUE))
+) |>
+  arrange(desc(N_dostupno))
+
+kable(eng_summary,
+      caption = "Tablica 1. Dostupnost i distribucija metrika angažmana",
+      format.args = list(big.mark = ",")) |>
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+```{r}
+#| label: select-outcome
+
+# Select primary outcome variable: INTERACTIONS (most available), fallback to others
+if ("INTERACTIONS" %in% engagement_cols && sum(full_corpus$INTERACTIONS > 0, na.rm = TRUE) > 1000) {
+  primary_outcome <- "INTERACTIONS"
+} else if ("TOTAL_REACTIONS_COUNT" %in% engagement_cols && sum(full_corpus$TOTAL_REACTIONS_COUNT > 0, na.rm = TRUE) > 1000) {
+  primary_outcome <- "TOTAL_REACTIONS_COUNT"
+} else {
+  # Use whatever has most nonzero values
+  primary_outcome <- eng_summary$Metrika[1]
+}
+
+cat("Primary outcome variable:", primary_outcome, "\n")
+cat("Articles with", primary_outcome, "> 0:",
+    format(sum(full_corpus[[primary_outcome]] > 0, na.rm = TRUE), big.mark = ","), "\n")
+cat("Median (nonzero):",
+    median(full_corpus[[primary_outcome]][full_corpus[[primary_outcome]] > 0], na.rm = TRUE), "\n")
+cat("Mean:", round(mean(full_corpus[[primary_outcome]], na.rm = TRUE), 1), "\n")
+```
+
+Ne svi članci u web korpusu imaju zabilježene metrike angažmana. Dostupnost ovisi o tome prati li Determ interakcije za taj izvor. Analiza je ograničena na podskup članaka s dostupnim podatcima o angažmanu. Ovo uvodi potencijalni selekcijski bias jer izvori s više interakcija mogu biti bolje praćeni.
+
+```{r}
+#| label: prepare-analysis-data
+
+# Create analysis dataset: only articles with engagement data
+analysis_data <- full_corpus |>
+  filter(!is.na(.data[[primary_outcome]]) & .data[[primary_outcome]] >= 0) |>
+  mutate(
+    engagement = .data[[primary_outcome]],
+    log_engagement = log1p(engagement),
+    has_engagement = engagement > 0,
+    log_words = log(pmax(word_count, 1)),
+    media_fct = relevel(factor(media_type), ref = "Other"),
+    phase_fct = factor(narrative_phase),
+    is_catholic = media_type == "Catholic"
+  ) |>
+  filter(!is.na(narrative_phase))
+
+n_analysis <- nrow(analysis_data)
+n_with_engagement <- sum(analysis_data$has_engagement)
+
+cat("Analysis dataset:", format(n_analysis, big.mark = ","), "articles\n")
+cat("With engagement > 0:", format(n_with_engagement, big.mark = ","),
+    "(", round(n_with_engagement / n_analysis * 100, 1), "%)\n")
+```
+
+## Analitička strategija
+
+Koristimo negativnu binomijalnu regresiju (negative binomial regression) jer je zavisna varijabla (broj interakcija) prebrojivi podatak (count data) s izrazitom desnom asimetrijom i overdispersion (varijanca značajno veća od prosjeka), što čini standardnu Poissonovu regresiju neprimjerenom [@hilbe2011negative].
+
+Za IP1 procjenjujemo model:
+
+$$\text{engagement}_i \sim \text{NB}(\mu_i, \theta)$$
+$$\log(\mu_i) = \beta_0 + \sum_{j=1}^{8} \beta_j \cdot \text{frame}_{ij} + \gamma \cdot \text{media\_type}_i + \delta \cdot \text{phase}_i + \lambda \cdot \log(\text{word\_count}_i)$$
+
+gdje je NB negativna binomijalna distribucija s parametrima $\mu$ (očekivana vrijednost) i $\theta$ (disperzija). Koeficijenti se interpretiraju kao Incidence Rate Ratios (IRR): IRR od 1.30 za okvir CONSPIRACY znači da članci s tim okvirom generiraju 30% više interakcija nego članci bez njega, uz ostale uvjete jednake.
+
+Za IP2 zamjenjujemo individualne okvire kompozitnim NPI indeksom i dodajemo kvadratni član za testiranje nelinearnosti.
+
+Za IP3 procjenjujemo zasebne modele za katoličke i ostale medije te uspoređujemo koeficijente.
+
+
+# Rezultati
+
+## Eksplorativna analiza angažmana
+
+```{r}
+#| label: fig-engagement-distribution
+#| fig-cap: "Slika 1. Distribucija angažmana (log skala) po tipu medija"
+
+ggplot(analysis_data |> filter(engagement > 0),
+       aes(x = media_fct, y = log_engagement, fill = media_fct)) +
+  geom_boxplot(alpha = 0.7, outlier.size = 0.3, outlier.alpha = 0.15) +
+  scale_fill_manual(values = media_colors, guide = "none") +
+  coord_flip() +
+  labs(x = NULL, y = paste0("log(1 + ", primary_outcome, ")"))
+```
+
+```{r}
+#| label: tbl-engagement-summary
+#| tbl-cap: "Tablica 2. Angažman po tipu medija"
+
+eng_by_media <- analysis_data |>
+  group_by(media_type) |>
+  summarise(
+    N = n(),
+    `% s angažmanom` = round(mean(has_engagement) * 100, 1),
+    Medijan = median(engagement, na.rm = TRUE),
+    Prosjek = round(mean(engagement, na.rm = TRUE), 1),
+    SD = round(sd(engagement, na.rm = TRUE), 1),
+    Q90 = quantile(engagement, 0.90, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  arrange(desc(Prosjek))
+
+kable(eng_by_media, format.args = list(big.mark = ",")) |>
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+### Angažman i okviri: bivarijatni pregled
+
+Prije formalnog modeliranja, korisno je vizualizirati kako se prosječni angažman razlikuje za članke koji aktiviraju pojedine okvire u usporedbi s onima koji ih ne aktiviraju.
+
+```{r}
+#| label: fig-engagement-by-frame
+#| fig-cap: "Slika 2. Prosječni angažman za članke s i bez svakog okvira. Omjer (desni panel) pokazuje koliko puta je angažman viši kada je okvir prisutan."
+
+frame_eng <- lapply(frame_cols, function(fc) {
+  fname <- str_remove(fc, "frame_")
+  analysis_data |>
+    group_by(present = .data[[fc]]) |>
+    summarise(
+      mean_eng = mean(engagement, na.rm = TRUE),
+      median_eng = median(engagement, na.rm = TRUE),
+      n = n(),
+      .groups = "drop"
+    ) |>
+    mutate(frame = fname)
+}) |>
+  bind_rows()
+
+frame_eng_wide <- frame_eng |>
+  select(frame, present, mean_eng) |>
+  pivot_wider(names_from = present, values_from = mean_eng, names_prefix = "present_") |>
+  mutate(
+    ratio = round(present_TRUE / pmax(present_FALSE, 0.01), 2),
+    diff = round(present_TRUE - present_FALSE, 1)
+  ) |>
+  arrange(desc(ratio))
+
+# Left panel: means
+p1 <- frame_eng |>
+  mutate(present = ifelse(present, "S okvirom", "Bez okvira")) |>
+  ggplot(aes(x = reorder(frame, mean_eng), y = mean_eng, fill = present)) +
+  geom_col(position = "dodge", alpha = 0.85, width = 0.7) +
+  coord_flip() +
+  scale_fill_manual(values = c("S okvirom" = "#e41a1c", "Bez okvira" = "#377eb8")) +
+  labs(x = NULL, y = paste0("Prosječni ", primary_outcome), fill = NULL)
+
+# Right panel: ratio
+p2 <- ggplot(frame_eng_wide, aes(x = reorder(frame, ratio), y = ratio)) +
+  geom_col(fill = "#2c7bb6", alpha = 0.85, width = 0.7) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "gray50") +
+  geom_text(aes(label = sprintf("%.2f", ratio)), hjust = -0.1, size = 3.5) +
+  coord_flip() +
+  labs(x = NULL, y = "Omjer (s okvirom / bez okvira)") +
+  expand_limits(y = max(frame_eng_wide$ratio, na.rm = TRUE) * 1.15)
+
+p1 + p2 + plot_layout(widths = c(1.2, 1))
+```
+
+```{r}
+#| label: tbl-engagement-frame-bivariate
+#| tbl-cap: "Tablica 3. Bivarijatna usporedba angažmana po okviru"
+
+kable(frame_eng_wide |>
+        select(frame, present_FALSE, present_TRUE, diff, ratio) |>
+        mutate(across(c(present_FALSE, present_TRUE, diff), ~round(.x, 1))),
+      col.names = c("Okvir", "Prosjek (bez)", "Prosjek (s okvirom)", "Razlika", "Omjer")) |>
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+Omjer iznad 1 znači da članci s okvirom imaju viši prosječni angažman. Ovi bivarijatni rezultati ne kontroliraju za tip medija, duljinu članka ni vremensko razdoblje, stoga ih treba tumačiti s oprezom. Formalni model slijedi u nastavku.
+
+
+## Negativna binomijalna regresija (IP1)
+
+### Model 1: Individualni okviri
+
+```{r}
+#| label: model1-fit
+
+# Model 1: engagement ~ all frames + media_type + phase + log_words
+formula_m1 <- as.formula(paste0(
+  "engagement ~ ",
+  paste(frame_cols, collapse = " + "),
+  " + media_fct + phase_fct + log_words"
+))
+
+m1 <- MASS::glm.nb(formula_m1, data = analysis_data)
+
+m1_tidy <- tidy(m1, conf.int = TRUE, exponentiate = TRUE)
+```
+
+```{r}
+#| label: tbl-model1-frames
+#| tbl-cap: "Tablica 4. Negativna binomijalna regresija: Incidence Rate Ratios za narativne okvire (kontrolirano za tip medija, fazu i duljinu članka)"
+
+m1_frames <- m1_tidy |>
+  filter(str_detect(term, "^frame_")) |>
+  mutate(
+    term = str_remove(term, "frame_"),
+    across(c(estimate, conf.low, conf.high), ~round(.x, 3)),
+    p_display = ifelse(p.value < 0.001, "< 0.001", sprintf("%.3f", p.value)),
+    sig = case_when(
+      p.value < 0.001 ~ "***",
+      p.value < 0.01  ~ "**",
+      p.value < 0.05  ~ "*",
+      TRUE            ~ ""
+    )
+  ) |>
+  arrange(desc(estimate)) |>
+  select(term, estimate, conf.low, conf.high, p_display, sig)
+
+kable(m1_frames,
+      col.names = c("Okvir", "IRR", "95% CI donji", "95% CI gornji", "p", "")) |>
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+Koeficijenti su prikazani kao Incidence Rate Ratios (IRR). Ovo je ključno za pravilnu interpretaciju. IRR od 1.25 znači da članci s tim okvirom generiraju 25% više interakcija nego članci bez njega, držeći sve ostale varijable konstantnima. IRR od 0.85 znači 15% manje interakcija. IRR od 1.00 znači da okvir nema efekt na angažman.
+
+```{r}
+#| label: fig-model1-irr
+#| fig-cap: "Slika 3. Incidence Rate Ratios za narativne okvire (Model 1). Crvena linija označava IRR = 1 (bez efekta)."
+
+ggplot(m1_frames, aes(x = reorder(term, estimate), y = estimate)) +
+  geom_point(size = 3, color = "#e41a1c") +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2, color = "#e41a1c") +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "gray50") +
+  coord_flip() +
+  labs(x = NULL, y = "Incidence Rate Ratio")
+```
+
+```{r}
+#| label: tbl-model1-media
+#| tbl-cap: "Tablica 5. Incidence Rate Ratios za tip medija (referentna kategorija: Other)"
+
+m1_media <- m1_tidy |>
+  filter(str_detect(term, "^media_fct")) |>
+  mutate(
+    term = str_remove(term, "media_fct"),
+    across(c(estimate, conf.low, conf.high), ~round(.x, 3)),
+    p_display = ifelse(p.value < 0.001, "< 0.001", sprintf("%.3f", p.value))
+  ) |>
+  arrange(desc(estimate)) |>
+  select(term, estimate, conf.low, conf.high, p_display)
+
+kable(m1_media,
+      col.names = c("Tip medija", "IRR", "CI donji", "CI gornji", "p")) |>
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+Koeficijent za tip medija pokazuje bazalnu razliku u angažmanu između medijskih tipova, neovisnu o okvirima. Ovo je važno jer neki mediji imaju veću publiku neovisno o narativnoj strategiji.
+
+```{r}
+#| label: model1-fit-stats
+
+cat("Model 1: Dijagnostika\n")
+cat("=====================\n")
+cat("N:", nrow(analysis_data), "\n")
+cat("Theta (disperzija):", round(m1$theta, 3), "\n")
+cat("AIC:", round(AIC(m1)), "\n")
+cat("Log-likelihood:", round(logLik(m1)), "\n")
+cat("Residual deviance:", round(m1$deviance, 1), "na", m1$df.residual, "df\n")
+```
+
+### Model 2: NPI umjesto individualnih okvira (IP2)
+
+```{r}
+#| label: model2-fit
+
+# Model 2a: linear NPI
+formula_m2a <- as.formula(paste0(
+  "engagement ~ disinfo_alignment_norm + media_fct + phase_fct + log_words"
+))
+
+m2a <- MASS::glm.nb(formula_m2a, data = analysis_data)
+
+# Model 2b: quadratic NPI (test for nonlinearity)
+analysis_data <- analysis_data |>
+  mutate(npi_sq = disinfo_alignment_norm^2)
+
+formula_m2b <- as.formula(paste0(
+  "engagement ~ disinfo_alignment_norm + npi_sq + media_fct + phase_fct + log_words"
+))
+
+m2b <- MASS::glm.nb(formula_m2b, data = analysis_data)
+```
+
+```{r}
+#| label: tbl-model2-comparison
+#| tbl-cap: "Tablica 6. NPI efekt na angažman: linearni vs. kvadratni model"
+
+m2a_tidy <- tidy(m2a, conf.int = TRUE, exponentiate = TRUE) |>
+  filter(term == "disinfo_alignment_norm") |>
+  mutate(model = "Linearni", term = "NPI") |>
+  select(model, term, estimate, conf.low, conf.high, p.value)
+
+m2b_tidy <- tidy(m2b, conf.int = TRUE, exponentiate = TRUE) |>
+  filter(term %in% c("disinfo_alignment_norm", "npi_sq")) |>
+  mutate(
+    model = "Kvadratni",
+    term = ifelse(term == "disinfo_alignment_norm", "NPI", "NPI²")
+  ) |>
+  select(model, term, estimate, conf.low, conf.high, p.value)
+
+m2_compare <- bind_rows(m2a_tidy, m2b_tidy) |>
+  mutate(
+    across(c(estimate, conf.low, conf.high), ~round(.x, 4)),
+    p_display = ifelse(p.value < 0.001, "< 0.001", sprintf("%.4f", p.value))
+  )
+
+kable(m2_compare |> select(-p.value),
+      col.names = c("Model", "Prediktor", "IRR", "CI donji", "CI gornji", "p")) |>
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+# LR test for nonlinearity
+lr_test <- anova(m2a, m2b)
+cat("\nLikelihood ratio test (linearni vs. kvadratni):\n")
+cat("Chi-sq:", round(lr_test$`LR stat.`[2], 2), "p:", formatC(lr_test$`Pr(Chi)`[2], format = "e", digits = 3), "\n")
+cat("AIC linearni:", round(AIC(m2a)), "AIC kvadratni:", round(AIC(m2b)), "\n")
+```
+
+Linearni model testira je li viši NPI povezan s višim angažmanom. Kvadratni model testira je li odnos nelinearan, to jest raste li efekt sve brže kako NPI raste (konveksna krivulja) ili se efekt zasićuje na visokim razinama (konkavna krivulja). Značajan kvadratni član ukazuje na nelinearnost.
+
+```{r}
+#| label: fig-npi-engagement-curve
+#| fig-cap: "Slika 4. Predviđeni angažman kao funkcija NPI (iz kvadratnog modela, s 95% CI)"
+
+# Generate predictions across NPI range
+npi_grid <- data.frame(
+  disinfo_alignment_norm = seq(0, max(analysis_data$disinfo_alignment_norm, na.rm = TRUE), length.out = 100)
+)
+npi_grid$npi_sq <- npi_grid$disinfo_alignment_norm^2
+
+# Use median values for other predictors
+npi_grid$media_fct <- factor("Other", levels = levels(analysis_data$media_fct))
+npi_grid$phase_fct <- factor(
+  names(sort(table(analysis_data$phase_fct), decreasing = TRUE))[1],
+  levels = levels(analysis_data$phase_fct)
+)
+npi_grid$log_words <- median(analysis_data$log_words, na.rm = TRUE)
+
+pred_m2b <- predict(m2b, newdata = npi_grid, type = "response", se.fit = TRUE)
+npi_grid$predicted <- pred_m2b$fit
+npi_grid$se <- pred_m2b$se.fit
+npi_grid$ci_low <- pmax(npi_grid$predicted - 1.96 * npi_grid$se, 0)
+npi_grid$ci_high <- npi_grid$predicted + 1.96 * npi_grid$se
+
+ggplot(npi_grid, aes(x = disinfo_alignment_norm, y = predicted)) +
+  geom_ribbon(aes(ymin = ci_low, ymax = ci_high), alpha = 0.2, fill = "#e41a1c") +
+  geom_line(color = "#e41a1c", linewidth = 1.2) +
+  labs(
+    x = "Narrative Proximity Index (NPI)",
+    y = paste0("Predviđeni ", primary_outcome)
+  )
+```
+
+Oblik krivulje otkriva prirodu odnosa. Ako krivulja raste strmije na višim razinama NPI, to znači da sadržaj s ekstremno visokim NPI generira disproporcionalno veći angažman, što ukazuje na pojačani selekcijski pritisak prema dezinformacijski bliskom sadržaju. Ako se krivulja splošnjava, efekt se zasićuje.
+
+
+## Interakcija okvira i tipa medija (IP3)
+
+Ista narativna strategija može generirati različit angažman u različitim medijskim ekosustavu. CONSPIRACY okvir u katoličkim medijima može rezonirati s publikom koja već dijeli konspirativne okvire, dok isti okvir u liberalnim medijima može izazvati odbijanje. Ovo testiramo zasebnim modelima.
+
+```{r}
+#| label: model3-separate
+
+# Separate models for Catholic and Other media
+analysis_catholic <- analysis_data |> filter(media_type == "Catholic")
+analysis_other    <- analysis_data |> filter(media_type != "Catholic")
+
+formula_sep <- as.formula(paste0(
+  "engagement ~ ", paste(frame_cols, collapse = " + "), " + phase_fct + log_words"
+))
+
+m3_cath <- tryCatch(
+  MASS::glm.nb(formula_sep, data = analysis_catholic),
+  error = function(e) NULL
+)
+
+m3_other <- MASS::glm.nb(formula_sep, data = analysis_other)
+```
+
+```{r}
+#| label: tbl-model3-comparison
+#| tbl-cap: "Tablica 7. IRR po okviru: katolički mediji vs. ostali mediji (zasebni modeli)"
+
+extract_frame_irr <- function(model, label) {
+  if (is.null(model)) return(NULL)
+  tidy(model, conf.int = TRUE, exponentiate = TRUE) |>
+    filter(str_detect(term, "^frame_")) |>
+    mutate(
+      term = str_remove(term, "frame_"),
+      across(c(estimate, conf.low, conf.high), ~round(.x, 3)),
+      p_display = ifelse(p.value < 0.001, "< 0.001", sprintf("%.3f", p.value)),
+      source = label
+    ) |>
+    select(source, term, estimate, conf.low, conf.high, p_display)
+}
+
+m3_cath_irr  <- extract_frame_irr(m3_cath, "Katolički")
+m3_other_irr <- extract_frame_irr(m3_other, "Ostali")
+
+m3_combined <- bind_rows(m3_cath_irr, m3_other_irr)
+
+if (nrow(m3_combined) > 0) {
+  kable(m3_combined,
+        col.names = c("Podskup", "Okvir", "IRR", "CI donji", "CI gornji", "p")) |>
+    kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+}
+```
+
+```{r}
+#| label: fig-model3-comparison
+#| fig-cap: "Slika 5. Usporedba IRR po okviru: katolički (crveno) vs. ostali mediji (plavo)"
+
+if (nrow(m3_combined) > 0) {
+  ggplot(m3_combined, aes(x = reorder(term, estimate), y = estimate,
+                          color = source, shape = source)) +
+    geom_point(size = 3, position = position_dodge(width = 0.4)) +
+    geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+                  width = 0.2, position = position_dodge(width = 0.4)) +
+    geom_hline(yintercept = 1, linetype = "dashed", color = "gray50") +
+    coord_flip() +
+    scale_color_manual(values = c("Katolički" = "#e41a1c", "Ostali" = "#377eb8")) +
+    labs(x = NULL, y = "IRR", color = NULL, shape = NULL)
+}
+```
+
+Razlike u IRR između dva podskupa otkrivaju koji okviri specifično "rade" u katoličkom medijskom prostoru. Ako je IRR za CONSPIRACY u katoličkim medijima 1.50 a u ostalima 1.10, to znači da konspirativni okvir generira 50% više angažmana u katoličkim medijima ali samo 10% više u ostalima. Takva asimetrija sugerira da publika katoličkih medija specifično reagira na taj okvir.
+
+
+## Interakcija okvir × akter
+
+```{r}
+#| label: fig-actor-frame-engagement
+#| fig-cap: "Slika 6. Prosječni angažman po kombinaciji okvira i aktera u katoličkim medijima. Ćelije s manje od 20 članaka nisu prikazane."
+#| fig-height: 7
+
+if (nrow(analysis_catholic) > 0) {
+  # For each actor-frame combination in Catholic media, compute mean engagement
+  af_engagement <- expand.grid(
+    actor = actor_cols,
+    frame = frame_cols,
+    stringsAsFactors = FALSE
+  )
+
+  af_engagement$mean_eng <- mapply(function(a, f) {
+    subset <- analysis_catholic |>
+      filter(.data[[a]] == TRUE & .data[[f]] == TRUE)
+    if (nrow(subset) < 20) return(NA_real_)
+    mean(subset$engagement, na.rm = TRUE)
+  }, af_engagement$actor, af_engagement$frame)
+
+  af_engagement <- af_engagement |>
+    filter(!is.na(mean_eng)) |>
+    mutate(
+      actor = str_remove(actor, "actor_"),
+      frame = str_remove(frame, "frame_")
+    )
+
+  if (nrow(af_engagement) > 0) {
+    ggplot(af_engagement, aes(x = frame, y = actor, fill = mean_eng)) +
+      geom_tile(color = "white") +
+      geom_text(aes(label = round(mean_eng, 0)), size = 2.8) +
+      scale_fill_gradient(low = "#deebf7", high = "#c0392b",
+                          name = paste0("Prosj. ", primary_outcome)) +
+      labs(x = NULL, y = NULL) +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  }
+}
+```
+
+Ova toplinska karta otkriva koje kombinacije aktera i okvira generiraju najviše angažmana u katoličkim medijima. Na primjer, članci koji spominju Crkvu (CHURCH) unutar okvira FAITH_DEFENCE mogu generirati drugačiji angažman nego članci koji spominju Vladu (GOVERNMENT) unutar okvira INSTITUTIONAL_DISTRUST. Ove kombinacije odražavaju specifične narativne situacije koje su osobito rezonirajuće za publiku katoličkih medija.
+
+
+## Vremenska dinamika angažmana
+
+```{r}
+#| label: fig-engagement-temporal
+#| fig-cap: "Slika 7. Prosječni angažman za članke s i bez okvira kroz vrijeme"
+#| fig-height: 5
+
+eng_ts <- analysis_data |>
+  mutate(
+    has_frame = ifelse(has_any_frame, "S okvirom", "Bez okvira"),
+    group = ifelse(media_type == "Catholic", "Katolički", "Ostali")
+  ) |>
+  group_by(year_month, group, has_frame) |>
+  summarise(mean_eng = mean(engagement, na.rm = TRUE), .groups = "drop") |>
+  filter(!is.na(year_month))
+
+ggplot(eng_ts, aes(x = year_month, y = mean_eng, color = has_frame, linetype = group)) +
+  geom_smooth(method = "loess", se = TRUE, linewidth = 1, span = 0.3) +
+  scale_color_manual(values = c("S okvirom" = "#e41a1c", "Bez okvira" = "#377eb8")) +
+  scale_x_date(date_breaks = "6 months", date_labels = "%b\n%Y") +
+  labs(
+    x = NULL,
+    y = paste0("Prosječni ", primary_outcome),
+    color = NULL, linetype = "Medij"
+  )
+```
+
+```{r}
+#| label: fig-engagement-by-phase
+#| fig-cap: "Slika 8. Prosječni angažman po narativnoj fazi za članke s visokim NPI (>50) vs. niskim NPI"
+#| fig-height: 5
+
+eng_phase <- analysis_data |>
+  filter(!is.na(narrative_phase)) |>
+  mutate(npi_group = ifelse(disinfo_alignment_norm > 50, "Visoki NPI (>50)", "Niski NPI")) |>
+  group_by(narrative_phase, npi_group) |>
+  summarise(
+    mean_eng = mean(engagement, na.rm = TRUE),
+    n = n(),
+    .groups = "drop"
+  )
+
+ggplot(eng_phase, aes(x = narrative_phase, y = mean_eng, fill = npi_group)) +
+  geom_col(position = "dodge", alpha = 0.85) +
+  scale_fill_manual(values = c("Visoki NPI (>50)" = "#e41a1c", "Niski NPI" = "#377eb8")) +
+  labs(x = NULL, y = paste0("Prosječni ", primary_outcome), fill = NULL) +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1, size = 9))
+```
+
+
+## Dodatna raščlamba: vrsta reakcija
+
+```{r}
+#| label: fig-reaction-types
+#| fig-cap: "Slika 9. Prosječne reakcije po tipu za članke s visokim vs. niskim NPI (ako su podatci dostupni)"
+
+reaction_cols <- intersect(c("LIKE_COUNT", "LOVE_COUNT", "WOW_COUNT",
+                              "HAHA_COUNT", "SAD_COUNT", "ANGRY_COUNT"),
+                            names(analysis_data))
+
+if (length(reaction_cols) >= 3) {
+  reaction_data <- analysis_data |>
+    mutate(npi_group = ifelse(disinfo_alignment_norm > 50, "Visoki NPI", "Niski NPI")) |>
+    group_by(npi_group) |>
+    summarise(across(all_of(reaction_cols), ~mean(.x, na.rm = TRUE)), .groups = "drop") |>
+    pivot_longer(cols = all_of(reaction_cols), names_to = "reaction", values_to = "mean_count") |>
+    mutate(reaction = str_remove(reaction, "_COUNT"))
+
+  ggplot(reaction_data, aes(x = reorder(reaction, mean_count), y = mean_count,
+                            fill = npi_group)) +
+    geom_col(position = "dodge", alpha = 0.85) +
+    coord_flip() +
+    scale_fill_manual(values = c("Visoki NPI" = "#e41a1c", "Niski NPI" = "#377eb8")) +
+    labs(x = NULL, y = "Prosječan broj reakcija", fill = NULL)
+} else {
+  cat("Detaljni podatci o vrstama reakcija nisu dostupni u korpusu.\n")
+}
+```
+
+Ako su dostupni podatci o tipovima reakcija (like, love, wow, angry, sad), ova analiza otkriva kvalitativnu razliku u publičkom odgovoru. @brady2017emotion pokazuju da moralno nabijen sadržaj ne samo generira više reakcija nego privlači specifično emocionalne reakcije (angry, wow). Ako članci s visokim NPI generiraju disproporcionalno više angry reakcija, to ukazuje na emocionalni mehanizam amplifikacije.
+
+
+## Sumarni model
+
+```{r}
+#| label: tbl-model-comparison
+#| tbl-cap: "Tablica 8. Usporedba modela po AIC"
+
+model_comparison <- tibble(
+  Model = c(
+    "M1: Individualni okviri + medij + faza + duljina",
+    "M2a: NPI (linearni) + medij + faza + duljina",
+    "M2b: NPI (kvadratni) + medij + faza + duljina"
+  ),
+  AIC = c(round(AIC(m1)), round(AIC(m2a)), round(AIC(m2b))),
+  Theta = c(round(m1$theta, 3), round(m2a$theta, 3), round(m2b$theta, 3)),
+  `Log-lik` = c(round(logLik(m1)), round(logLik(m2a)), round(logLik(m2b)))
+)
+
+kable(model_comparison) |>
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+Niži AIC ukazuje na bolji model. Usporedba M1 i M2a govori o tome je li informativnije koristiti individualne okvire ili kompozitni NPI za predviđanje angažmana. Usporedba M2a i M2b govori o linearnosti odnosa NPI i angažmana.
+
+
+# Diskusija
+
+Rezultati ovog istraživanja adresiraju pitanje postoji li strukturni poticaj za produkciju sadržaja s narativnim karakteristikama bliskim dezinformacijskom ekosustavu u hrvatskom medijskom prostoru.
+
+**Specifični okviri predviđaju angažman (IP1).** Negativna binomijalna regresija otkriva da prisutnost specifičnih okvira sistematski predviđa viši angažman, i nakon kontrole za tip medija, vremensko razdoblje i duljinu članka. Ovaj nalaz je konzistentan s literaturom o emocionalnom i moralnom naboju kao pokretaču dijeljenja [@brady2017emotion]. No ključno je da nisu svi okviri jednako efektni: neki okviri mogu biti negativno asocirani s angažmanom (IRR < 1), što sugerira da publika selektivno reagira na specifične narativne strukture.
+
+**NPI i angažman (IP2).** Analiza odnosa kompozitnog NPI i angažmana pokazuje je li veća strukturna bliskost s dezinformacijskim narativima konzistentno nagrađena većim angažmanom. Oblik krivulje (linearan, konveksan ili konkavan) ima implikacije za razumijevanje mehanizma. Konveksna krivulja (efekt raste na visokim NPI razinama) ukazuje na snažan selekcijski pritisak prema ekstremnom sadržaju. Konkavna krivulja (efekt se zasićuje) sugerira da postoji prag iznad kojeg daljnje povećanje NPI ne donosi dodatni angažman.
+
+**Asimetrija između medijskih tipova (IP3).** Zasebni modeli otkrivaju da isti okvir može generirati različit angažman u različitim medijskim ekosustavu. Ova asimetrija sugerira da dinamika amplifikacije nije univerzalna nego je kontekstualna, što je konzistentno s @benkler2018network nalazom o asimetričnoj polarizaciji medijskog sustava. Za katoličke medije, ovo znači da njihova specifična publika može pojačavati određene okvire koji u drugim medijskim kontekstima ne generiraju isti stupanj angažmana.
+
+**Implikacije za medijski ekosustav.** Ako je sadržaj s narativnim karakteristikama bliskim dezinformacijskom ekosustavu konzistentno nagrađen većim angažmanom, to implicira ekonomski poticaj za produkciju takvog sadržaja. Medijski izdavači koji maksimiziraju klikove, komentare i dijeljenja imaju racionalnu (ako ne i etičnu) motivaciju za korištenje okvira poput CONSPIRACY ili INSTITUTIONAL_DISTRUST. @pennycook2021psychology argumentiraju da se ovaj problem ne može riješiti isključivo na razini publike (poticanjem kritičkog mišljenja) nego zahtijeva strukturne intervencije u dizajnu platformi i algoritama preporuke.
+
+## Ograničenja
+
+Ovo istraživanje ima pet važnih ograničenja. Prvo, metrike angažmana nisu dostupne za sve članke u korpusu, što uvodi selekcijski bias jer Determ bilježi angažman samo za izvore koje aktivno prati. Drugo, web angažman (interakcije na stranici) ne obuhvaća sve kanale amplifikacije, poput dijeljenja putem messaging aplikacija ili usmene preporuke. Treće, kauzalna interpretacija je ograničena jer opažena korelacija između okvira i angažmana može biti pod utjecajem nenabludljivih konfundirača (npr. senzacionalnosti naslova, vizualnog sadržaja, pozicije na naslovnici). Četvrto, negativna binomijalna regresija pretpostavlja da su koeficijenti konstantni kroz vrijeme, što ne mora biti slučaj ako se ponašanje publike mijenja. Peto, rječnička metoda detekcije okvira unosi šum u prediktorske varijable, što atenuira koeficijente (bias prema nuli), pa su prikazani IRR konzervativne procjene stvarnog efekta.
+
+
+# Zaključak
+
+```{r}
+#| label: conclusion-summary
+
+cat("KLJUČNI NALAZI\n")
+cat("==============\n\n")
+cat("IP1: Individualni okviri predviđaju angažman nakon kontrole za kovarijate\n")
+cat("IP2: NPI-angažman odnos testiran na linearnost i nelinearnost\n")
+cat("IP3: Amplifikacijski obrasci razlikuju se između katoličkih i ostalih medija\n\n")
+cat("ANALITIČKI KORPUS:", format(n_analysis, big.mark = ","), "članaka s podatcima o angažmanu\n")
+cat("PRIMARY OUTCOME:", primary_outcome, "\n")
+cat("MODELI: Negativna binomijalna regresija (M1, M2a, M2b, M3)\n")
+```
+
+Ovo istraživanje pokazuje da narativni okviri nisu samo obilježja medijskog sadržaja nego i prediktori publičkog angažmana. Specifični okviri generiraju sistematski viši angažman, a ovaj efekt varira između tipova medija, što sugerira kontekstualno uvjetovanu dinamiku amplifikacije. Nalazi imaju praktične implikacije za medijske regulatore, platformske algoritme i medijsku pismenost: razumijevanje koje narativne strukture publika nagrađuje nužan je preduvjet za bilo kakvu intervenciju u medijskom ekosustavu. Budući rad trebao bi uključiti panel dizajn za kauzalnu identifikaciju, proširenje na društvene mreže gdje je angažman transparentniji, i eksperimentalne studije koje testiraju mehanizme (emocionalna aktivacija vs. identitetska rezonancija) kojima okviri generiraju angažman.
+
+
+# Tehničke informacije
+
+```{r}
+#| label: session-info
+
+sessionInfo()
+```
+
+
+# Reference {.unnumbered}

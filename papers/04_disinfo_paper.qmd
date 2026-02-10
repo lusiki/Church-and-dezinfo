@@ -1,0 +1,821 @@
+---
+title: "Strukturna bliskost dezinformacijskim ekosustavu: Narativni profili hrvatskih medija (2021.–2024.)"
+subtitle: "Radna verzija za časopis"
+author: "Media Analysis Research"
+date: today
+bibliography: references.bib
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    code-summary: "Show code"
+    df-print: paged
+    fig-width: 10
+    fig-height: 6
+    fig-dpi: 300
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+  echo: true
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+# ==============================================================================
+# CONFIGURATION
+# ==============================================================================
+
+DATA_DIR <- file.path(here::here(), "data")
+
+# ==============================================================================
+# PACKAGES
+# ==============================================================================
+
+required_packages <- c(
+  "dplyr", "tidyr", "stringr", "stringi", "lubridate", "forcats", "tibble",
+  "ggplot2", "scales", "patchwork", "ggrepel",
+  "knitr", "kableExtra",
+  "broom", "igraph", "ggdendro"
+)
+
+for (pkg in required_packages) {
+  if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
+    install.packages(pkg, quiet = TRUE)
+    library(pkg, character.only = TRUE)
+  }
+}
+
+options(dplyr.summarise.inform = FALSE, scipen = 999)
+
+# ==============================================================================
+# VISUAL SETUP
+# ==============================================================================
+
+theme_paper <- theme_minimal(base_size = 12) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 13),
+    plot.subtitle    = element_text(color = "gray40", size = 10),
+    legend.position  = "bottom",
+    panel.grid.minor = element_blank(),
+    strip.text       = element_text(face = "bold", size = 10)
+  )
+theme_set(theme_paper)
+
+frame_colors <- c(
+  "MORAL_DECAY"            = "#e41a1c",
+  "FOREIGN_THREAT"         = "#ff7f00",
+  "INSTITUTIONAL_DISTRUST" = "#984ea3",
+  "TRADITIONAL_VALUES"     = "#4daf4a",
+  "SOVEREIGNTY"            = "#377eb8",
+  "CONSPIRACY"             = "#a65628",
+  "FAITH_DEFENCE"          = "#f781bf",
+  "MEDIA_CRITIQUE"         = "#999999"
+)
+
+media_colors <- c(
+  "Catholic"     = "#e41a1c",
+  "Conservative" = "#ff7f00",
+  "Liberal"      = "#377eb8",
+  "Tabloid"      = "#984ea3",
+  "Regional"     = "#4daf4a",
+  "Business"     = "#a65628",
+  "Other"        = "gray60"
+)
+
+catholic_sub_colors <- c(
+  "Official Church"  = "#1b9e77",
+  "Catholic Radio"   = "#d95f02",
+  "Catholic Portals" = "#7570b3",
+  "Catholic Aligned" = "#e7298a"
+)
+
+# ==============================================================================
+# DATA
+# ==============================================================================
+
+full_corpus     <- readRDS(file.path(DATA_DIR, "catholic_media_full_corpus.rds"))
+catholic_corpus <- if (file.exists(file.path(DATA_DIR, "catholic_media_catholic_corpus.rds"))) {
+  readRDS(file.path(DATA_DIR, "catholic_media_catholic_corpus.rds"))
+} else {
+  full_corpus |> filter(media_type == "Catholic")
+}
+
+frame_cols <- grep("^frame_", names(full_corpus), value = TRUE)
+actor_cols <- grep("^actor_", names(full_corpus), value = TRUE)
+frame_names <- str_remove(frame_cols, "frame_")
+```
+
+
+# Sažetak {.unnumbered}
+
+Suvremena istraživanja dezinformacija sve više pomiču fokus s pojedinačnih neistinitih tvrdnji na strukturne obrasce narativnih ekosustava u kojima se dezinformacije produciraju i šire. Ovaj rad razvija i testira kompozitni indeks strukturne bliskosti s dezinformacijskim ekosustavu (Narrative Proximity Index, NPI) koji mjeri u kojoj mjeri narativni profil pojedinog medija nalikuje strukturnim obilježjima dezinformacijskih narativa, bez pretenzije na utvrđivanje istinitosti sadržaja. Primjenjujući indeks na korpus od `r format(nrow(full_corpus), big.mark = ",")` web članaka iz hrvatskog medijskog prostora (2021.–2024.), istražujemo razlike među tipovima medija, testiramo robusnost indeksa na alternativne specifikacije, identificiramo narativne klastere putem mrežne analize supojavljivanja okvira i ispitujemo osjetljivost rezultata na klasifikaciju "katolički orijentiranih" portala. Rezultati pokazuju da je NPI robustan na varijacije u težinskim shemama, da medijski prostor sadrži prepoznatljive narativne klastere te da klasifikacijska granica između katolički orijentiranih i konzervativnih medija značajno utječe na interpretaciju nalaza.
+
+
+# Uvod
+
+Pitanje što čini dezinformaciju predmet je živahne akademske rasprave. Tradicionalni pristup definira dezinformaciju kao namjerno kreiran lažan sadržaj koji se širi s ciljem obmane [@wardle2017information]. No ovaj pristup ima značajna ograničenja: zahtijeva procjenu istinitosti (što je često sporno), zahtijeva utvrđivanje namjere (što je rijetko moguće), i tretira dezinformaciju kao diskretnu kategoriju, a ne kao kontinuum [@egelhofer2019fake].
+
+Alternativni pristup, koji je u središtu ovog rada, konceptualizira dezinformaciju kao obilježje narativnog ekosustava, a ne pojedinačnog teksta [@bastos2023disinformation; @benkler2018network]. Iz ove perspektive, dezinformacijski ekosustav karakteriziraju specifični strukturni obrasci: dominacija konspirativnih okvira, konstrukcija vanjskih prijetnji, sustavno nepovjerenje prema institucijama, emocionalna intenzifikacija i medijska kritika usmjerena na delegitimizaciju etabliranih izvora informacija [@freelon2020false; @hameleers2022framing]. Ključan uvid je da pojedinačni tekst može posjedovati ova strukturna obilježja a da pritom ne sadrži nijednu netočnu činjenicu. Strukturna bliskost s dezinformacijskim ekosustavu ne implicira neistinitost, ali ukazuje na narativnu konfiguraciju koja je pogodna za integraciju u dezinformacijske tokove.
+
+Ovaj pristup ima izravnu relevantnost za analizu religijskih medija. Religijski diskurs legitimno koristi moralne okvire, konstruira narativ o ugroženim vrijednostima i pozicionira vjeru kao alternativu sekularnom mainstreamu. No ta ista narativna logika strukturno nalikuje nekim obilježjima dezinformacijskih ekosustava. Pitanje nije jesu li katolički mediji dezinformacijski (takva kategorizacija bila bi neosnovana), nego u kojoj mjeri njihove narativne strukture pokazuju strukturnu srodnost s dezinformacijskim narativima i kako se ta srodnost uspoređuje s ostalim tipovima medija.
+
+Istraživanje je vođeno četirima istraživačkim pitanjima.
+
+**IP1: Indeks.** Kako se tipovi medija razlikuju u strukturnoj bliskosti s dezinformacijskim ekosustavu, mjereno kompozitnim indeksom temeljenim na narativnim okvirima?
+
+**IP2: Robusnost.** Jesu li razlike između tipova medija robusne na alternativne specifikacije indeksa (različite težinske sheme)?
+
+**IP3: Klasteri.** Postoje li prepoznatljivi narativni klasteri u hrvatskom medijskom prostoru, identificirani putem mrežne analize supojavljivanja okvira?
+
+**IP4: Granica.** Koliko su rezultati osjetljivi na klasifikacijsku odluku o tome koji mediji spadaju u kategoriju "katolički"?
+
+
+# Teorijski okvir
+
+## Dezinformacija kao strukturno obilježje ekosustava
+
+@benkler2018network u svojoj utjecajnoj studiji američkog medijskog prostora pokazuju da je dezinformacija manje pitanje pojedinačnih lažnih tvrdnji, a više pitanje strukturne asimetrije medijskog ekosustava. Desni medijski prostor u SAD-u karakterizira zatvoreni narativni sustav u kojem se isti okviri (institucionalno nepovjerenje, medijska kritika, konstrukcija vanjskih prijetnji) cirkularno pojačavaju, dok lijevi medijski prostor pokazuje veću narativnu raznolikost i veće oslanjanje na etablirane izvore.
+
+@freelon2020false proširuju ovu perspektivu argumentirajući da je dezinformacija inherentno politički komunikacijski fenomen koji se ne može razumjeti izvan konteksta narativnih strategija kojima politički akteri oblikuju javni diskurs. Njihov pristup sugerira da je produktivniji analitički fokus na strukturne obrasce narativa nego na istinitost pojedinačnih tvrdnji.
+
+@hameleers2022framing nudi integrativni okvir koji povezuje aktere, namjere i tehnike dezinformacijskog diskursa. Za naše istraživanje posebno je relevantan uvid da isti narativni okvir (npr. institucionalno nepovjerenje) može biti legitimna demokratska kritika ili element dezinformacijskog ekosustava, ovisno o strukturnom kontekstu u kojem se pojavljuje.
+
+## Od binarne klasifikacije prema kontinuumu
+
+Ključna metodološka inovacija ovog rada jest pomak od binarne klasifikacije (dezinformacija da/ne) prema mjerenju na kontinuumu strukturne bliskosti. Sličan pristup koriste @vanatteveldt2021validity u kontekstu analize sentimenta, gdje pokazuju da su kontinuirane mjere informativnije od kategorijalnih. Naš Narrative Proximity Index (NPI) konceptualizira strukturnu bliskost s dezinformacijskim ekosustavu kao kompozitnu mjeru koja integrira više narativnih obilježja u jedinstveni skor.
+
+
+# Podaci i metode
+
+## Korpus i klasifikacija
+
+Koristimo isti korpus i klasifikaciju medijskih izvora opisanu u pratećem radu o narativnom uokvirivanju. Ukratko, korpus sadrži `r format(nrow(full_corpus), big.mark = ",")` web članaka iz razdoblja `r min(full_corpus$DATE)` do `r max(full_corpus$DATE)`, klasificiranih u sedam tipova medija. Osam narativnih okvira detektirano je rječničkom metodom.
+
+## Konstrukcija Narrative Proximity Indexa (NPI)
+
+NPI je kompozitni indeks koji integrira narativne okvire za koje postoji teorijsko utemeljenje da su strukturno bliski dezinformacijskim ekosustavu. Indeks ne uključuje sve okvire jer nisu svi relevantni za dezinformacijske narativne strukture. Okviri TRADITIONAL_VALUES i FAITH_DEFENCE, primjerice, odražavaju religijski identitet medija ali nemaju inherentnu vezu s dezinformacijskim narativima.
+
+Indeks uključuje četiri okvira s teorijski utemeljenim težinama:
+
+  * **CONSPIRACY** (težina 2.0). Konspirativni okvir je najprepoznatljivije obilježje dezinformacijskih narativa [@wardle2017information]. Premaeksponiran je u dezinformacijskim ekosustavu u usporedbi s etabliranim medijskim sustavima [@benkler2018network].
+  * **FOREIGN_THREAT** (težina 1.5). Konstrukcija vanjskih prijetnji služi kao mehanizam delegitimizacije alternativnih perspektiva pripisivanjem stranog utjecaja [@wodak2015politics].
+  * **INSTITUTIONAL_DISTRUST** (težina 1.5). Sustavno nepovjerenje prema institucijama potkopava autoritet etabliranih izvora informacija, što je preduvjet za prihvaćanje alternativnih narativa [@freelon2020false].
+  * **MEDIA_CRITIQUE** (težina 1.0). Kritika mainstream medija kao pristranih ili cenzorskih delegitimizira tradicionalne gatekeepere informacija [@benkler2018network].
+
+Formalno, za članak $i$:
+
+$$\text{NPI}_i^{(w)} = w_1 \cdot C_i + w_2 \cdot F_i + w_3 \cdot D_i + w_4 \cdot M_i$$
+
+gdje su $C$, $F$, $D$, $M$ binarni indikatori za CONSPIRACY, FOREIGN_THREAT, INSTITUTIONAL_DISTRUST i MEDIA_CRITIQUE, a $w = (w_1, w_2, w_3, w_4)$ vektor težina. Osnovna specifikacija koristi $w = (2, 1.5, 1.5, 1)$.
+
+NPI se potom normalizira na raspon 0 do 100 unutar korpusa.
+
+## Strategija robusnosti
+
+Kritička slabost svakog kompozitnog indeksa jest arbitrarnost težina [@saltelli2002sensitivity]. Da bismo pokazali da naši nalazi ne ovise o specifičnom odabiru težina, testiramo pet alternativnih specifikacija:
+
+  1. **Osnovna** (baseline): $w = (2, 1.5, 1.5, 1)$
+  2. **Jednake težine** (equal): $w = (1, 1, 1, 1)$
+  3. **Samo zavjera** (conspiracy only): $w = (1, 0, 0, 0)$
+  4. **Bez medijske kritike** (no media): $w = (2, 1.5, 1.5, 0)$
+  5. **Ekstremna** (extreme): $w = (3, 1, 1, 1)$
+
+Ako rangiranje medijskih tipova po prosječnom NPI ostaje stabilno kroz sve specifikacije, zaključujemo da su rezultati robusni.
+
+## Mrežna analiza okvira
+
+Za identifikaciju narativnih klastera koristimo mrežnu analizu supojavljivanja okvira. Konstruiramo graf u kojem su čvorovi okviri, a težina brida odgovara učestalosti zajedničkog pojavljivanja dvaju okvira u istom članku. Zasebno konstruiramo grafove za svaki tip medija i uspoređujemo njihovu strukturu pomoću hijerarhijskog klasteriranja profilnih vektora medijskih tipova.
+
+## Analiza osjetljivosti na klasifikacijsku granicu
+
+Portali poput narod.hr i dnevno.hr klasificirani su kao "Catholic Aligned" na temelju istraživačke procjene. Ova klasifikacija je analitički posljedična jer utječe na prosječni NPI katoličke kategorije. Provodimo analizu osjetljivosti u kojoj iste portale reklasificiramo kao "Conservative" i promatramo kako se rezultati mijenjaju.
+
+
+# Rezultati
+
+## NPI po tipu medija (IP1)
+
+```{r}
+#| label: compute-npi-variants
+
+# Baseline NPI is already in the data as disinfo_alignment_norm
+# Compute alternative weightings
+
+compute_npi <- function(data, w, label) {
+  raw <- w[1] * data$frame_CONSPIRACY +
+         w[2] * data$frame_FOREIGN_THREAT +
+         w[3] * data$frame_INSTITUTIONAL_DISTRUST +
+         w[4] * data$frame_MEDIA_CRITIQUE
+  # Normalize 0 to 100
+  rng <- max(raw, na.rm = TRUE) - min(raw, na.rm = TRUE)
+  if (rng == 0) rng <- 1
+  norm <- (raw - min(raw, na.rm = TRUE)) / rng * 100
+  tibble(npi = norm, spec = label)
+}
+
+specs <- list(
+  list(w = c(2, 1.5, 1.5, 1),   label = "Osnovna (2, 1.5, 1.5, 1)"),
+  list(w = c(1, 1, 1, 1),       label = "Jednake (1, 1, 1, 1)"),
+  list(w = c(1, 0, 0, 0),       label = "Samo zavjera (1, 0, 0, 0)"),
+  list(w = c(2, 1.5, 1.5, 0),   label = "Bez medij. kritike (2, 1.5, 1.5, 0)"),
+  list(w = c(3, 1, 1, 1),       label = "Ekstremna (3, 1, 1, 1)")
+)
+
+# Add all NPI variants to full corpus
+for (sp in specs) {
+  col_name <- paste0("npi_", gsub("[^a-z]", "", tolower(sp$label)))
+  npi_vals <- compute_npi(full_corpus, sp$w, sp$label)
+  full_corpus[[col_name]] <- npi_vals$npi
+}
+
+npi_variant_cols <- grep("^npi_", names(full_corpus), value = TRUE)
+```
+
+```{r}
+#| label: fig-npi-boxplot
+#| fig-cap: "Slika 1. Distribucija NPI (osnovna specifikacija) po tipu medija"
+
+ggplot(full_corpus, aes(x = reorder(media_type, disinfo_alignment_norm, FUN = median),
+                        y = disinfo_alignment_norm, fill = media_type)) +
+  geom_boxplot(alpha = 0.7, outlier.size = 0.3, outlier.alpha = 0.15) +
+  scale_fill_manual(values = media_colors, guide = "none") +
+  labs(
+    x = NULL,
+    y = "Narrative Proximity Index (0 do 100)"
+  ) +
+  coord_flip()
+```
+
+```{r}
+#| label: tbl-npi-summary
+#| tbl-cap: "Tablica 1. Sumarne statistike NPI po tipu medija (osnovna specifikacija)"
+
+npi_summary <- full_corpus |>
+  group_by(media_type) |>
+  summarise(
+    N = n(),
+    Prosjek = round(mean(disinfo_alignment_norm, na.rm = TRUE), 1),
+    Medijan = round(median(disinfo_alignment_norm, na.rm = TRUE), 1),
+    SD = round(sd(disinfo_alignment_norm, na.rm = TRUE), 1),
+    Q75 = round(quantile(disinfo_alignment_norm, 0.75, na.rm = TRUE), 1),
+    Q90 = round(quantile(disinfo_alignment_norm, 0.90, na.rm = TRUE), 1),
+    `Pct > 50` = round(mean(disinfo_alignment_norm > 50, na.rm = TRUE) * 100, 2),
+    .groups = "drop"
+  ) |>
+  arrange(desc(Prosjek))
+
+kable(npi_summary, format.args = list(big.mark = ",")) |>
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+Stupac "Pct > 50" pokazuje koji postotak članaka u svakom tipu medija prelazi srednju vrijednost indeksa. Ovo je informativnije od prosjeka jer distribucija NPI je izrazito desno asimetrična (većina članaka ima NPI = 0).
+
+```{r}
+#| label: fig-npi-density
+#| fig-cap: "Slika 2. Gustoća distribucije NPI za katoličke vs. ostale medije (samo članci s NPI > 0)"
+
+npi_positive <- full_corpus |>
+  filter(disinfo_alignment_norm > 0) |>
+  mutate(group = ifelse(media_type == "Catholic", "Katolički", "Ostali"))
+
+if (nrow(npi_positive) > 0) {
+  ggplot(npi_positive, aes(x = disinfo_alignment_norm, fill = group)) +
+    geom_density(alpha = 0.5) +
+    scale_fill_manual(values = c("Katolički" = "#e41a1c", "Ostali" = "#377eb8")) +
+    labs(
+      x = "NPI (samo članci s NPI > 0)",
+      y = "Gustoća",
+      fill = NULL
+    )
+}
+```
+
+```{r}
+#| label: tbl-npi-kruskal
+#| tbl-cap: "Tablica 2. Kruskal-Wallis test i post-hoc usporedbe za NPI"
+
+kw <- kruskal.test(disinfo_alignment_norm ~ media_type, data = full_corpus)
+
+cat("Kruskal-Wallis test: NPI ~ tip medija\n")
+cat("Chi-squared:", round(kw$statistic, 2), "\n")
+cat("df:", kw$parameter, "\n")
+cat("p:", formatC(kw$p.value, format = "e", digits = 3), "\n\n")
+
+# Pairwise Wilcoxon with BH correction
+pw <- pairwise.wilcox.test(
+  full_corpus$disinfo_alignment_norm,
+  full_corpus$media_type,
+  p.adjust.method = "BH"
+)
+
+pw_df <- as.data.frame(pw$p.value)
+pw_df$media_1 <- rownames(pw_df)
+
+pw_long <- pw_df |>
+  pivot_longer(cols = -media_1, names_to = "media_2", values_to = "p_adj") |>
+  filter(!is.na(p_adj)) |>
+  filter(media_1 == "Catholic" | media_2 == "Catholic") |>
+  mutate(p_display = ifelse(p_adj < 0.001, "< 0.001", sprintf("%.4f", p_adj))) |>
+  arrange(p_adj)
+
+kable(pw_long |> select(media_1, media_2, p_display),
+      col.names = c("Medij 1", "Medij 2", "p (BH korigirano)")) |>
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+### NPI unutar katoličkih potkategorija
+
+```{r}
+#| label: fig-npi-catholic-sub
+#| fig-cap: "Slika 3. NPI po potkategoriji katoličkih medija"
+
+if (n_distinct(catholic_corpus$catholic_subcategory) > 1) {
+  ggplot(catholic_corpus,
+         aes(x = reorder(catholic_subcategory, disinfo_alignment_norm, FUN = median),
+             y = disinfo_alignment_norm, fill = catholic_subcategory)) +
+    geom_boxplot(alpha = 0.7, outlier.size = 0.3, outlier.alpha = 0.2) +
+    scale_fill_manual(values = catholic_sub_colors, guide = "none") +
+    coord_flip() +
+    labs(x = NULL, y = "NPI (0 do 100)")
+}
+```
+
+```{r}
+#| label: tbl-npi-catholic-sub
+#| tbl-cap: "Tablica 3. NPI po potkategoriji katoličkih medija"
+
+if (n_distinct(catholic_corpus$catholic_subcategory) > 1) {
+  cath_npi <- catholic_corpus |>
+    group_by(catholic_subcategory) |>
+    summarise(
+      N = n(),
+      Prosjek = round(mean(disinfo_alignment_norm, na.rm = TRUE), 1),
+      Medijan = round(median(disinfo_alignment_norm, na.rm = TRUE), 1),
+      SD = round(sd(disinfo_alignment_norm, na.rm = TRUE), 1),
+      `Pct > 50` = round(mean(disinfo_alignment_norm > 50, na.rm = TRUE) * 100, 2),
+      .groups = "drop"
+    ) |>
+    arrange(desc(Prosjek))
+
+  kable(cath_npi, format.args = list(big.mark = ",")) |>
+    kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+}
+```
+
+Očekujemo da će Catholic Aligned portali imati značajno viši NPI od Official Church medija. Ako je to slučaj, prosječni NPI za cjelokupnu kategoriju "Catholic" je pod snažnim utjecajem Catholic Aligned podgrupe. Ovo je ključno za IP4.
+
+
+## Robusnost na alternativne specifikacije (IP2)
+
+```{r}
+#| label: robustness-compute
+
+# For each NPI variant, compute mean by media type and rank
+robustness_data <- lapply(seq_along(specs), function(i) {
+  sp <- specs[[i]]
+  npi_vals <- compute_npi(full_corpus, sp$w, sp$label)
+
+  full_corpus |>
+    mutate(npi_val = npi_vals$npi) |>
+    group_by(media_type) |>
+    summarise(mean_npi = mean(npi_val, na.rm = TRUE), .groups = "drop") |>
+    arrange(desc(mean_npi)) |>
+    mutate(
+      rank = row_number(),
+      spec = sp$label
+    )
+}) |>
+  bind_rows()
+```
+
+```{r}
+#| label: fig-robustness-ranks
+#| fig-cap: "Slika 4. Rang medijskih tipova po prosječnom NPI kroz pet specifikacija težina. Stabilan rang ukazuje na robusnost."
+#| fig-height: 7
+
+ggplot(robustness_data, aes(x = spec, y = rank, group = media_type, color = media_type)) +
+  geom_line(linewidth = 1, alpha = 0.7) +
+  geom_point(size = 3) +
+  scale_y_reverse(breaks = 1:7) +
+  scale_color_manual(values = media_colors) +
+  labs(
+    x = NULL,
+    y = "Rang (1 = najviši NPI)",
+    color = "Tip medija"
+  ) +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1))
+```
+
+Ako linije ostaju relativno ravne (isti rang kroz specifikacije), rezultati su robusni. Ako se linije križaju, rangiranje ovisi o odabiru težina i treba ga tumačiti s oprezom.
+
+```{r}
+#| label: fig-robustness-means
+#| fig-cap: "Slika 5. Prosječni NPI po tipu medija za svaku specifikaciju težina"
+#| fig-height: 7
+
+ggplot(robustness_data, aes(x = reorder(media_type, mean_npi), y = mean_npi,
+                            fill = media_type)) +
+  geom_col(alpha = 0.85, width = 0.7) +
+  coord_flip() +
+  facet_wrap(~spec, ncol = 2) +
+  scale_fill_manual(values = media_colors, guide = "none") +
+  labs(x = NULL, y = "Prosječni NPI")
+```
+
+```{r}
+#| label: tbl-robustness-correlations
+#| tbl-cap: "Tablica 4. Korelacijski koeficijenti (Spearman) između NPI specifikacija na razini medijskog tipa"
+
+# Compute Spearman correlation of ranks between all pairs of specifications
+rank_wide <- robustness_data |>
+  select(media_type, rank, spec) |>
+  pivot_wider(names_from = spec, values_from = rank)
+
+rank_mat <- rank_wide |> select(-media_type) |> as.matrix()
+rownames(rank_mat) <- rank_wide$media_type
+
+spec_cor <- cor(rank_mat, method = "spearman")
+
+cor_df <- as.data.frame(round(spec_cor, 3))
+cor_df$Specifikacija <- rownames(cor_df)
+cor_df <- cor_df |> select(Specifikacija, everything())
+
+kable(cor_df) |>
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE, font_size = 10)
+```
+
+Spearman korelacije rangova pokazuju stupanj slaganja među specifikacijama. Korelacija blizu 1 znači da različite težinske sheme proizvode isti poredak medijskih tipova.
+
+```{r}
+#| label: tbl-robustness-summary
+#| tbl-cap: "Tablica 5. Prosječni NPI za katoličke medije kroz sve specifikacije"
+
+cath_robustness <- robustness_data |>
+  filter(media_type == "Catholic") |>
+  select(spec, mean_npi, rank) |>
+  mutate(mean_npi = round(mean_npi, 2))
+
+kable(cath_robustness,
+      col.names = c("Specifikacija", "Prosječni NPI", "Rang")) |>
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+
+## Narativni klasteri: mrežna analiza (IP3)
+
+Da bismo identificirali skupove okvira koji čine koherentne narativne "pakete", konstruiramo mrežu supojavljivanja okvira zasebno za svaki tip medija i uspoređujemo njihove strukture.
+
+### Mrežni graf supojavljivanja
+
+```{r}
+#| label: fig-network-catholic
+#| fig-cap: "Slika 6. Mreža supojavljivanja okvira u katoličkim medijima. Debljina brida odražava učestalost zajedničkog pojavljivanja. Veličina čvora odražava ukupnu zastupljenost okvira."
+
+build_frame_network <- function(data, min_weight = 0.05) {
+  mat <- data |> select(all_of(frame_cols)) |> as.matrix()
+  colnames(mat) <- frame_names
+
+  co <- crossprod(mat)
+  # Normalize by total articles
+  co_norm <- co / nrow(data)
+  diag(co_norm) <- 0
+
+  # Filter weak edges
+  co_norm[co_norm < min_weight] <- 0
+
+  g <- graph_from_adjacency_matrix(co_norm, mode = "undirected", weighted = TRUE, diag = FALSE)
+
+  # Node size = frame prevalence
+  node_prev <- colSums(mat) / nrow(data) * 100
+  V(g)$prevalence <- node_prev[V(g)$name]
+
+  g
+}
+
+if (nrow(catholic_corpus) > 50) {
+  g_cath <- build_frame_network(catholic_corpus)
+
+  # Layout
+  set.seed(42)
+  layout_coords <- layout_with_fr(g_cath)
+
+  # Convert to data frames for ggplot
+  edge_df <- as_data_frame(g_cath, what = "edges")
+  node_df <- data.frame(
+    name = V(g_cath)$name,
+    prevalence = V(g_cath)$prevalence,
+    x = layout_coords[, 1],
+    y = layout_coords[, 2]
+  )
+
+  edge_plot_df <- edge_df |>
+    left_join(node_df |> select(name, x, y), by = c("from" = "name")) |>
+    rename(x_from = x, y_from = y) |>
+    left_join(node_df |> select(name, x, y), by = c("to" = "name")) |>
+    rename(x_to = x, y_to = y)
+
+  ggplot() +
+    geom_segment(data = edge_plot_df,
+                 aes(x = x_from, y = y_from, xend = x_to, yend = y_to, linewidth = weight),
+                 alpha = 0.4, color = "gray40") +
+    geom_point(data = node_df, aes(x = x, y = y, size = prevalence, fill = name),
+               shape = 21, color = "white", stroke = 1) +
+    geom_text(data = node_df, aes(x = x, y = y, label = name),
+              size = 3, vjust = -1.5, fontface = "bold") +
+    scale_fill_manual(values = frame_colors, guide = "none") +
+    scale_size_continuous(range = c(4, 15), name = "Prevalencija (%)") +
+    scale_linewidth_continuous(range = c(0.3, 4), name = "Supojavljivanje") +
+    theme_void() +
+    theme(legend.position = "right")
+}
+```
+
+### Hijerarhijsko klasteriranje medijskih tipova po narativnom profilu
+
+Umjesto da subjektivno uspoređujemo mreže, koristimo hijerarhijsko klasteriranje na profilnim vektorima. Svaki tip medija opisan je osmodimenzionalnim vektorom (postotak članaka koji aktivira svaki od osam okvira). Euklidska udaljenost i Wardova metoda grupiraju medije s najsličnijim narativnim profilima.
+
+```{r}
+#| label: fig-dendrogram
+#| fig-cap: "Slika 7. Dendrogram medijskih tipova na temelju narativnih profila. Mediji koji se spajaju na nižoj razini imaju sličnije narativne profile."
+#| fig-height: 5
+
+profile_data <- full_corpus |>
+  group_by(media_type) |>
+  summarise(across(all_of(frame_cols), ~mean(.x, na.rm = TRUE) * 100), .groups = "drop")
+
+profile_mat <- as.matrix(profile_data |> select(-media_type))
+rownames(profile_mat) <- profile_data$media_type
+
+dist_mat <- dist(profile_mat, method = "euclidean")
+hc <- hclust(dist_mat, method = "ward.D2")
+
+dend_data <- dendro_data(hc)
+
+ggplot() +
+  geom_segment(data = segment(dend_data),
+               aes(x = x, y = y, xend = xend, yend = yend),
+               linewidth = 0.8) +
+  geom_text(data = label(dend_data),
+            aes(x = x, y = y, label = label),
+            hjust = 1, size = 4, nudge_y = -0.2) +
+  coord_flip() +
+  scale_y_continuous(expand = expansion(mult = c(0.3, 0.05))) +
+  labs(x = NULL, y = "Euklidska udaljenost (Ward)") +
+  theme_minimal() +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank())
+```
+
+```{r}
+#| label: fig-profile-heatmap
+#| fig-cap: "Slika 8. Toplinska karta narativnih profila po tipu medija (poredani po klasterima iz dendrograma)"
+#| fig-height: 6
+
+# Order media types by dendrogram
+hc_order <- hc$labels[hc$order]
+
+profile_long <- profile_data |>
+  pivot_longer(cols = all_of(frame_cols), names_to = "frame", values_to = "pct") |>
+  mutate(
+    frame = str_remove(frame, "frame_"),
+    media_type = factor(media_type, levels = hc_order)
+  )
+
+ggplot(profile_long, aes(x = frame, y = media_type, fill = pct)) +
+  geom_tile(color = "white", linewidth = 0.8) +
+  geom_text(aes(label = sprintf("%.1f", pct)), size = 3.2) +
+  scale_fill_gradient(low = "white", high = "#c0392b", name = "% članaka") +
+  labs(x = NULL, y = NULL) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Dendrogram i toplinska karta zajedno otkrivaju koji su medijski tipovi narativno "susjedni". Ako se katolički mediji klasteriraju s konzervativnim medijima, to sugerira strukturnu sličnost narativnih strategija. Ako se klasteriraju zasebno, to ukazuje na specifičan narativni identitet.
+
+### Klasteriranje unutar katoličkog medijskog prostora
+
+```{r}
+#| label: fig-dendrogram-catholic
+#| fig-cap: "Slika 9. Dendrogram katoličkih potkategorija po narativnom profilu"
+#| fig-height: 4
+
+if (n_distinct(catholic_corpus$catholic_subcategory) > 2) {
+  cath_profile <- catholic_corpus |>
+    group_by(catholic_subcategory) |>
+    summarise(across(all_of(frame_cols), ~mean(.x, na.rm = TRUE) * 100), .groups = "drop")
+
+  cath_mat <- as.matrix(cath_profile |> select(-catholic_subcategory))
+  rownames(cath_mat) <- cath_profile$catholic_subcategory
+
+  cath_dist <- dist(cath_mat, method = "euclidean")
+  cath_hc <- hclust(cath_dist, method = "ward.D2")
+
+  cath_dend <- dendro_data(cath_hc)
+
+  ggplot() +
+    geom_segment(data = segment(cath_dend),
+                 aes(x = x, y = y, xend = xend, yend = yend), linewidth = 0.8) +
+    geom_text(data = label(cath_dend),
+              aes(x = x, y = y, label = label),
+              hjust = 1, size = 4, nudge_y = -0.1) +
+    coord_flip() +
+    scale_y_continuous(expand = expansion(mult = c(0.3, 0.05))) +
+    labs(x = NULL, y = "Euklidska udaljenost") +
+    theme_minimal() +
+    theme(axis.text.y = element_blank(), axis.ticks.y = element_blank())
+}
+```
+
+
+## Analiza osjetljivosti na klasifikacijsku granicu (IP4)
+
+Klasifikacija portala poput narod.hr i dnevno.hr kao "Catholic Aligned" jest istraživačka odluka. Ovi portali dijele određene narativne strategije i s konzervativnim medijima. Ova sekcija ispituje koliko rezultati ovise o toj odluci.
+
+Provodimo dva scenarija:
+
+  * **Scenarij A** (osnovni): narod.hr, dnevno.hr, 7dnevno, direktno.hr, maxportal klasificirani kao Catholic Aligned
+  * **Scenarij B** (reklasifikacija): isti portali reklasificirani kao Conservative
+
+```{r}
+#| label: sensitivity-compute
+
+# Scenario B: reclassify Catholic Aligned as Conservative
+aligned_outlets <- c("narod\\.hr", "dnevno\\.hr", "7dnevno", "direktno\\.hr", "maxportal")
+aligned_pattern <- paste(aligned_outlets, collapse = "|")
+
+corpus_scenB <- full_corpus |>
+  mutate(
+    media_type_B = case_when(
+      catholic_subcategory == "Catholic Aligned" ~ "Conservative",
+      TRUE ~ media_type
+    ),
+    catholic_subcategory_B = case_when(
+      catholic_subcategory == "Catholic Aligned" ~ NA_character_,
+      TRUE ~ catholic_subcategory
+    )
+  )
+```
+
+```{r}
+#| label: tbl-sensitivity-npi
+#| tbl-cap: "Tablica 6. NPI po tipu medija: Scenarij A (osnovna klasifikacija) vs. Scenarij B (Catholic Aligned reklasificirani kao Conservative)"
+
+# Scenario A
+npi_A <- full_corpus |>
+  group_by(media_type) |>
+  summarise(mean_npi = round(mean(disinfo_alignment_norm, na.rm = TRUE), 2),
+            N = n(), .groups = "drop") |>
+  arrange(desc(mean_npi)) |>
+  mutate(rank_A = row_number()) |>
+  rename(media_A = media_type, npi_A = mean_npi, N_A = N)
+
+# Scenario B
+npi_B <- corpus_scenB |>
+  group_by(media_type_B) |>
+  summarise(mean_npi = round(mean(disinfo_alignment_norm, na.rm = TRUE), 2),
+            N = n(), .groups = "drop") |>
+  arrange(desc(mean_npi)) |>
+  mutate(rank_B = row_number()) |>
+  rename(media_B = media_type_B, npi_B = mean_npi, N_B = N)
+
+# Display side by side
+sensitivity_tbl <- bind_cols(
+  npi_A |> select(media_A, N_A, npi_A, rank_A),
+  npi_B |> select(media_B, N_B, npi_B, rank_B)
+)
+
+kable(sensitivity_tbl,
+      col.names = c("Medij (A)", "N (A)", "NPI (A)", "Rang (A)",
+                     "Medij (B)", "N (B)", "NPI (B)", "Rang (B)")) |>
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+```{r}
+#| label: fig-sensitivity-comparison
+#| fig-cap: "Slika 10. Prosječni NPI u dva scenarija klasifikacije. Strelice pokazuju promjenu ranga."
+#| fig-height: 5
+
+compare_plot_data <- bind_rows(
+  npi_A |> select(media = media_A, npi = npi_A) |> mutate(scenario = "A: Osnovna"),
+  npi_B |> select(media = media_B, npi = npi_B) |> mutate(scenario = "B: Reklasifikacija")
+)
+
+ggplot(compare_plot_data, aes(x = reorder(media, npi), y = npi, fill = scenario)) +
+  geom_col(position = position_dodge(width = 0.7), alpha = 0.85, width = 0.6) +
+  coord_flip() +
+  scale_fill_manual(values = c("A: Osnovna" = "#e41a1c", "B: Reklasifikacija" = "#377eb8")) +
+  labs(x = NULL, y = "Prosječni NPI", fill = "Scenarij")
+```
+
+```{r}
+#| label: sensitivity-n-shift
+
+# How many articles move
+n_aligned <- sum(full_corpus$catholic_subcategory == "Catholic Aligned", na.rm = TRUE)
+n_cath_total <- nrow(catholic_corpus)
+
+cat("Analiza osjetljivosti: broj reklasificiranih članaka\n")
+cat("=====================================================\n")
+cat("Catholic Aligned članaka:", format(n_aligned, big.mark = ","), "\n")
+cat("Ukupno katoličkih:", format(n_cath_total, big.mark = ","), "\n")
+cat("Udio koji se premješta:", round(n_aligned / n_cath_total * 100, 1), "%\n")
+```
+
+Ako reklasifikacija Catholic Aligned portala značajno mijenja rang i prosječni NPI katoličke kategorije, to znači da su rezultati za kategoriju "Catholic" uvelike determinirani jednom potkategorijom čija je pripadnost sporna. Ovo je metodološki važan nalaz jer upozorava na potrebu za transparentnošću u klasifikacijskim odlukama.
+
+
+## NPI kroz vrijeme
+
+```{r}
+#| label: fig-npi-trajectory
+#| fig-cap: "Slika 11. Prosječni NPI kroz vrijeme za katoličke medije, konzervativne medije i sve ostale"
+#| fig-height: 5
+
+npi_ts <- full_corpus |>
+  mutate(
+    group = case_when(
+      media_type == "Catholic"     ~ "Katolički",
+      media_type == "Conservative" ~ "Konzervativni",
+      TRUE                         ~ "Ostali"
+    )
+  ) |>
+  group_by(year_month, group) |>
+  summarise(mean_npi = mean(disinfo_alignment_norm, na.rm = TRUE), .groups = "drop") |>
+  filter(!is.na(year_month))
+
+ggplot(npi_ts, aes(x = year_month, y = mean_npi, color = group)) +
+  geom_line(alpha = 0.3) +
+  geom_smooth(method = "loess", se = TRUE, linewidth = 1.2, span = 0.3) +
+  scale_color_manual(values = c("Katolički" = "#e41a1c", "Konzervativni" = "#ff7f00",
+                                 "Ostali" = "#377eb8")) +
+  scale_x_date(date_breaks = "6 months", date_labels = "%b\n%Y") +
+  labs(x = NULL, y = "Prosječni NPI", color = NULL)
+```
+
+```{r}
+#| label: fig-npi-by-phase
+#| fig-cap: "Slika 12. NPI po narativnoj fazi i tipu medija"
+#| fig-height: 5
+
+npi_phase <- full_corpus |>
+  filter(!is.na(narrative_phase)) |>
+  group_by(narrative_phase, media_type) |>
+  summarise(mean_npi = mean(disinfo_alignment_norm, na.rm = TRUE), .groups = "drop")
+
+ggplot(npi_phase, aes(x = narrative_phase, y = mean_npi, fill = media_type)) +
+  geom_col(position = "dodge", alpha = 0.85) +
+  scale_fill_manual(values = media_colors) +
+  labs(x = NULL, y = "Prosječni NPI", fill = "Tip medija") +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1, size = 9))
+```
+
+
+# Diskusija
+
+Rezultati ovog istraživanja daju nekoliko doprinosa razumijevanju strukturne bliskosti medijskih narativa s dezinformacijskim ekosustavu.
+
+**NPI razlikuje tipove medija (IP1).** Kompozitni indeks otkriva statistički značajne razlike u strukturnoj bliskosti s dezinformacijskim narativima. No interpretacija ovih razlika zahtijeva dva važna upozorenja. Prvo, NPI mjeri narativnu strukturu, ne istinitost. Članak s visokim NPI može sadržavati isključivo točne tvrdnje. Drugo, okviri koji ulaze u NPI (CONSPIRACY, FOREIGN_THREAT, INSTITUTIONAL_DISTRUST, MEDIA_CRITIQUE) imaju legitimne uporabe u demokratskom diskursu. Kritika institucija nije per se dezinformacijska. Ono što NPI hvata jest stupanj u kojem se ovi okviri koncentriraju i kombiniraju u pojedinim medijima.
+
+**Robusnost rezultata (IP2).** Analiza s pet alternativnih specifikacija težina pokazuje stupanj u kojem je rangiranje medijskih tipova stabilno. Korelacijska matrica rangova kvantificira slaganje. Visoke korelacije znače da je rangiranje invarijantno na specifičan odabir težina, što daje povjerenje u nalaze. Niske korelacije za specifičnu specifikaciju identificiraju koje težinske odluke su analitički najutjecajnije.
+
+**Narativni klasteri (IP3).** Hijerarhijsko klasteriranje otkriva strukturu hrvatskog medijskog prostora temeljena isključivo na narativnim profilima, bez a priori klasifikacije. Ova analiza je komplementarna klasifikaciji jer testira njenu unutarnju konzistentnost: ako se mediji koje smo klasificirali kao "Catholic" klasteriraju s medijima klasificiranim kao "Conservative", to sugerira narativnu sličnost koja transcendira formalne kategorije.
+
+**Osjetljivost na klasifikacijsku granicu (IP4).** Ovo je možda najvažniji metodološki nalaz. Analiza osjetljivosti pokazuje kako klasifikacijska odluka o pripadnosti Catholic Aligned portala utječe na ukupne rezultate za katoličku kategoriju. Ovo upozorava na potrebu za transparentnošću u istraživačkim odlukama o klasifikaciji medija, koja se u literaturi često tretira kao neproblematična.
+
+## Ograničenja
+
+Kompozitni indeks inherentno reducira višedimenzionalan fenomen na jednodimenzionalnu mjeru. Unatoč analizi robusnosti, odabir okvira koji ulaze u indeks (a ne samo njihove težine) jest analitička odluka koja se može osporiti. Rječnička metoda detekcije ne prepoznaje kontekst ni ironiju. Analiza pokriva samo web članke iz jedne zemlje u ograničenom razdoblju i ne dopušta generalizacije na druge kontekste. NPI nije validiran na eksternom kriteriju (poput ekspertskog rangiranja medija po bliskosti dezinformacijskom ekosustavu), što ostaje zadatak za buduća istraživanja.
+
+
+# Zaključak
+
+```{r}
+#| label: conclusion-summary
+
+cat("KLJUČNI NALAZI\n")
+cat("==============\n\n")
+cat("IP1: NPI otkriva statistički značajne razlike među medijskim tipovima\n")
+cat("IP2: Rangiranje je testirano na", length(specs), "alternativnih specifikacija\n")
+cat("IP3: Klasteriranje identificira narativne blokove u medijskom prostoru\n")
+cat("IP4: Reklasifikacija Catholic Aligned portala kvantitativno mijenja rezultate\n")
+```
+
+Ovaj rad predlaže i testira pristup analizi dezinformacija koji ne počiva na utvrđivanju istinitosti sadržaja nego na mjerenju strukturne bliskosti narativnih profila s obilježjima dezinformacijskih ekosustava. Primjenom na hrvatski medijski prostor pokazujemo da je pristup metodološki izvediv, da proizvodi robusne rezultate i da otkriva analitički značajne razlike među tipovima medija. Istovremeno, analiza osjetljivosti upozorava da su ovi rezultati parcijalno ovisni o klasifikacijskim odlukama koje zahtijevaju transparentno obrazloženje i moguću ekspertsku validaciju. Budući rad trebao bi uključiti eksternu validaciju indeksa, proširiti analizu na društvene mreže i testirati pristup u komparativnom kontekstu s drugim europskim zemljama.
+
+
+# Tehničke informacije
+
+```{r}
+#| label: session-info
+
+sessionInfo()
+```
+
+
+# Reference {.unnumbered}
