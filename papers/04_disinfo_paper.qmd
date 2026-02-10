@@ -1,5 +1,5 @@
 ---
-title: "Strukturna bliskost dezinformacijskim ekosustavu: Narativni profili hrvatskih medija (2021.–2024.)"
+title: "Strukturna bliskost dezinformacijskim ekosustavu: Narativni profili hrvatskih medija (2021.–2026.)"
 subtitle: "Radna verzija za časopis"
 author: "Media Analysis Research"
 date: today

@@ -313,8 +313,12 @@ frame_eng <- lapply(frame_cols, function(fc) {
   bind_rows()
 
 frame_eng_wide <- frame_eng |>
-  select(frame, present, mean_eng) |>
-  pivot_wider(names_from = present, values_from = mean_eng, names_prefix = "present_") |>
+  pivot_wider(
+    id_cols = frame,
+    names_from = present, 
+    values_from = mean_eng, 
+    names_prefix = "present_"
+  ) |>
   mutate(
     ratio = round(present_TRUE / pmax(present_FALSE, 0.01), 2),
     diff = round(present_TRUE - present_FALSE, 1)
@@ -346,9 +350,14 @@ p1 + p2 + plot_layout(widths = c(1.2, 1))
 #| label: tbl-engagement-frame-bivariate
 #| tbl-cap: "Tablica 3. Bivarijatna usporedba angažmana po okviru"
 
-kable(frame_eng_wide |>
-        select(frame, present_FALSE, present_TRUE, diff, ratio) |>
-        mutate(across(c(present_FALSE, present_TRUE, diff), ~round(.x, 1))),
+frame_eng_table <- frame_eng_wide |>
+  mutate(
+    present_FALSE = round(present_FALSE, 1),
+    present_TRUE = round(present_TRUE, 1),
+    diff = round(diff, 1)
+  )
+
+kable(frame_eng_table[, c("frame", "present_FALSE", "present_TRUE", "diff", "ratio")],
       col.names = c("Okvir", "Prosjek (bez)", "Prosjek (s okvirom)", "Razlika", "Omjer")) |>
   kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
 ```
@@ -393,7 +402,7 @@ m1_frames <- m1_tidy |>
     )
   ) |>
   arrange(desc(estimate)) |>
-  select(term, estimate, conf.low, conf.high, p_display, sig)
+  dplyr::select(term, estimate, conf.low, conf.high, p_display, sig)
 
 kable(m1_frames,
       col.names = c("Okvir", "IRR", "95% CI donji", "95% CI gornji", "p", "")) |>
@@ -426,7 +435,7 @@ m1_media <- m1_tidy |>
     p_display = ifelse(p.value < 0.001, "< 0.001", sprintf("%.3f", p.value))
   ) |>
   arrange(desc(estimate)) |>
-  select(term, estimate, conf.low, conf.high, p_display)
+  dplyr::select(term, estimate, conf.low, conf.high, p_display)
 
 kable(m1_media,
       col.names = c("Tip medija", "IRR", "CI donji", "CI gornji", "p")) |>
@@ -477,7 +486,7 @@ m2b <- MASS::glm.nb(formula_m2b, data = analysis_data)
 m2a_tidy <- tidy(m2a, conf.int = TRUE, exponentiate = TRUE) |>
   filter(term == "disinfo_alignment_norm") |>
   mutate(model = "Linearni", term = "NPI") |>
-  select(model, term, estimate, conf.low, conf.high, p.value)
+  dplyr::select(model, term, estimate, conf.low, conf.high, p.value)
 
 m2b_tidy <- tidy(m2b, conf.int = TRUE, exponentiate = TRUE) |>
   filter(term %in% c("disinfo_alignment_norm", "npi_sq")) |>
@@ -485,7 +494,7 @@ m2b_tidy <- tidy(m2b, conf.int = TRUE, exponentiate = TRUE) |>
     model = "Kvadratni",
     term = ifelse(term == "disinfo_alignment_norm", "NPI", "NPI²")
   ) |>
-  select(model, term, estimate, conf.low, conf.high, p.value)
+  dplyr::select(model, term, estimate, conf.low, conf.high, p.value)
 
 m2_compare <- bind_rows(m2a_tidy, m2b_tidy) |>
   mutate(
@@ -493,7 +502,7 @@ m2_compare <- bind_rows(m2a_tidy, m2b_tidy) |>
     p_display = ifelse(p.value < 0.001, "< 0.001", sprintf("%.4f", p.value))
   )
 
-kable(m2_compare |> select(-p.value),
+kable(m2_compare |> dplyr::select(-p.value),
       col.names = c("Model", "Prediktor", "IRR", "CI donji", "CI gornji", "p")) |>
   kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
 
@@ -579,7 +588,7 @@ extract_frame_irr <- function(model, label) {
       p_display = ifelse(p.value < 0.001, "< 0.001", sprintf("%.3f", p.value)),
       source = label
     ) |>
-    select(source, term, estimate, conf.low, conf.high, p_display)
+    dplyr::select(source, term, estimate, conf.low, conf.high, p_display)
 }
 
 m3_cath_irr  <- extract_frame_irr(m3_cath, "Katolički")
@@ -774,7 +783,7 @@ Rezultati ovog istraživanja adresiraju pitanje postoji li strukturni poticaj za
 
 **Asimetrija između medijskih tipova (IP3).** Zasebni modeli otkrivaju da isti okvir može generirati različit angažman u različitim medijskim ekosustavu. Ova asimetrija sugerira da dinamika amplifikacije nije univerzalna nego je kontekstualna, što je konzistentno s @benkler2018network nalazom o asimetričnoj polarizaciji medijskog sustava. Za katoličke medije, ovo znači da njihova specifična publika može pojačavati određene okvire koji u drugim medijskim kontekstima ne generiraju isti stupanj angažmana.
 
-**Implikacije za medijski ekosustav.** Ako je sadržaj s narativnim karakteristikama bliskim dezinformacijskom ekosustavu konzistentno nagrađen većim angažmanom, to implicira ekonomski poticaj za produkciju takvog sadržaja. Medijski izdavači koji maksimiziraju klikove, komentare i dijeljenja imaju racionalnu (ako ne i etičnu) motivaciju za korištenje okvira poput CONSPIRACY ili INSTITUTIONAL_DISTRUST. @pennycook2021psychology argumentiraju da se ovaj problem ne može riješiti isključivo na razini publike (poticanjem kritičkog mišljenja) nego zahtijeva strukturne intervencije u dizajnu platformi i algoritama preporuke.
+**Implikacije za medijski ekosustav.** Ako je sadržaj s narativnim karakteristikama bliskim dezinformacijskom ekosustavu konzistentno nagrađen većim angažmanom, to implicira ekonomski poticaj za produkciju takvog sadržaja. Medijski izdavači koji maksimiziraju klikove, komentare i dijeljenja imaju racionalnu (ako ne i etičku) motivaciju za korištenje okvira poput CONSPIRACY ili INSTITUTIONAL_DISTRUST. @pennycook2021psychology argumentiraju da se ovaj problem ne može riješiti isključivo na razini publike (poticanjem kritičkog mišljenja) nego zahtijeva strukturne intervencije u dizajnu platformi i algoritama preporuke.
 
 ## Ograničenja
 

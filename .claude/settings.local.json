@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nInitial project setup: organized structure with CLAUDE.md for AI consumption\n\n- Organized flat files into code/, data/, papers/ directories\n- Fixed all hardcoded paths to use here::here\\(\\) relative paths\n- Created .gitignore excluding 1.8GB RDS corpora and rendered output\n- Added README.md with data dictionary, frame definitions, setup instructions\n- Added CLAUDE.md with comprehensive AI-optimized project instructions\n- Renamed 03_framing_paper\\(1\\).qmd to 03_framing_paper.qmd\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit:*)",
+      "Bash(git push)"
+    ]
+  }
+}

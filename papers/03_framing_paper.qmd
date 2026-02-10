@@ -4,7 +4,6 @@ subtitle: "Radna verzija za časopis"
 author: "Media Analysis Research"
 date: today
 bibliography: references.bib
-csl: apa.csl
 format:
   html:
     theme: cosmo
