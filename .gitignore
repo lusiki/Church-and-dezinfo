@@ -5,10 +5,9 @@
 data/merged_comprehensive.rds
 
 # =============================================================================
-# Rendered output
+# Rendered output (keep HTML, ignore the rest)
 # =============================================================================
 papers/*_files/
-papers/*.html
 papers/*.pdf
 papers/*.docx
 *_cache/
