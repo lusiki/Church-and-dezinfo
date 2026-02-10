@@ -31,7 +31,7 @@ This project produces three interconnected research papers. Each paper stands al
 
 ### Paper 1: Narrative Framing Comparison
 
-**[View rendered analysis](papers/03_framing_paper.html)** | [Source](papers/03_framing_paper.qmd)
+**[View rendered analysis](https://raw.githack.com/lusiki/Church-and-dezinfo/main/papers/03_framing_paper.html)** | [Source](papers/03_framing_paper.qmd)
 
 Every news article makes choices about what to emphasize. An article about migration can emphasize sovereignty ("our borders are being violated"), foreign threat ("Brussels is forcing this on us"), traditional values ("this undermines our way of life"), or institutional distrust ("the government is lying about the numbers"). These choices are called *frames*. Paper 1 takes every web article in the corpus, detects which of eight frames are present, and asks: do Catholic media make different framing choices than liberal, tabloid, conservative, regional and business media?
 
@@ -47,7 +47,7 @@ The answer is yes, but the more interesting finding is that **Catholic media are
 
 ### Paper 2: Structural Proximity to Disinformation (NPI)
 
-**[View rendered analysis](papers/04_disinfo_paper.html)** | [Source](papers/04_disinfo_paper.qmd)
+**[View rendered analysis](https://raw.githack.com/lusiki/Church-and-dezinfo/main/papers/04_disinfo_paper.html)** | [Source](papers/04_disinfo_paper.qmd)
 
 Paper 1 shows which frames Catholic media use. Paper 2 asks a harder question: if we combine the frames that the literature identifies as characteristic of disinformation ecosystems (conspiracy, foreign threat, institutional distrust, media critique) into a single score, how do different media types compare? And is that comparison robust or does it depend on arbitrary choices we made?
 
@@ -69,7 +69,7 @@ The score is called the **Narrative Proximity Index (NPI)**. Think of it as a th
 
 ### Paper 3: Engagement and Amplification
 
-**[View rendered analysis](papers/05_engagement_paper.html)** | [Source](papers/05_engagement_paper.qmd)
+**[View rendered analysis](https://github.com/lusiki/Church-and-dezinfo/blob/main/papers/05_engagement_paper.html)** | [Source](papers/05_engagement_paper.qmd)
 
 Papers 1 and 2 analyze what media publish. Paper 3 asks what the audience does with it. Specifically: do articles with certain frames get more clicks, comments, and shares? And critically, do articles whose narrative structure is closer to disinformation ecosystems (higher NPI) get rewarded with more engagement?
 
