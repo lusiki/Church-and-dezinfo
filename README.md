@@ -1,6 +1,6 @@
-# Disinformation Narratives in Croatian Catholic Media (2021-2024)
+# Catholic Media and Christian Democratic Discourse in Croatia (2021-2026)
 
-Computational analysis of narrative framing in Croatian Catholic web media. This project examines how Catholic media outlets frame contested topics and measures structural proximity to disinformation narratives using dictionary-based methods on a corpus of 443,000+ web articles from the Determ monitoring platform.
+Computational analysis of narrative framing and ideological composition in the Croatian digital media sphere. This project uses dictionary based content analysis on a large corpus of web articles from the Determ (DigiKat) monitoring platform. Two research papers examine (1) narrative frames in Catholic web media and (2) the composition of Christian democratic sociopolitical discourse across media types.
 
 ## Project Structure
 
@@ -13,12 +13,10 @@ Computational analysis of narrative framing in Croatian Catholic web media. This
 │   ├── data_preparation_log.txt            # Pipeline execution log
 │   └── *.rds                               # Corpus files (NOT tracked - too large)
 ├── papers/
-│   ├── 02_analysis.qmd            # Exploratory analysis (Croatian)
-│   ├── 03_framing_paper.qmd       # Paper 1: Narrative framing comparison
-│   ├── 04_disinfo_paper.qmd       # Paper 2: Disinfo proximity index (NPI)
-│   ├── 05_engagement_paper.qmd    # Paper 3: Engagement & amplification
-│   └── references.bib             # Shared bibliography
-├── CLAUDE.md                      # AI assistant instructions
+│   ├── 03_framing_paper_2.qmd    # Paper 1: Narrative framing in Catholic media
+│   ├── rsp_paper_revised.qmd     # Paper 2: Christian democratic discourse (RSP)
+│   └── references.bib            # Shared bibliography
+├── CLAUDE.md                     # AI assistant instructions
 ├── .gitignore
 └── README.md
 ```
@@ -27,128 +25,115 @@ Computational analysis of narrative framing in Croatian Catholic web media. This
 
 ## Papers
 
-This project produces three interconnected research papers. Each paper stands alone for publication, but together they tell one story in three parts: Catholic media use specific frames. Some of those frames structurally resemble disinformation. And the audience rewards them.
+This project produces two research papers. Paper 1 maps how Catholic media frame contested topics and identifies internal diversity within the Catholic media sphere. Paper 2 asks whether the broader digital public sphere still carries substantive Christian democratic social policy content or has shifted to cultural identity signalling. Together they address the same underlying question from two directions: what does the Catholic and Christian democratic voice in Croatian media actually say, and how has it changed.
 
-### Paper 1: Narrative Framing Comparison
+### Paper 1: Narrative Framing in Croatian Catholic Web Media
 
-**[View rendered analysis](https://raw.githack.com/lusiki/Church-and-dezinfo/main/papers/03_framing_paper.html)** | [Source](papers/03_framing_paper.qmd)
+**[View rendered analysis](https://raw.githack.com/lusiki/Church-and-dezinfo/main/papers/03_framing_paper_2.html)** | [Source](papers/03_framing_paper_2.qmd)
 
-Every news article makes choices about what to emphasize. An article about migration can emphasize sovereignty ("our borders are being violated"), foreign threat ("Brussels is forcing this on us"), traditional values ("this undermines our way of life"), or institutional distrust ("the government is lying about the numbers"). These choices are called *frames*. Paper 1 takes every web article in the corpus, detects which of eight frames are present, and asks: do Catholic media make different framing choices than liberal, tabloid, conservative, regional and business media?
+Every news article makes choices about what to emphasize. An article about migration can emphasize sovereignty, foreign threat, traditional values, or institutional distrust. These choices are called frames. Paper 1 takes a large corpus of web articles covering the period 2021 to 2026, detects which of eight narrative frames are present using a dictionary procedure validated against a manually coded sample, and asks three questions. Do Catholic media differ from other media types in their use of narrative frames after controlling for article length and time period. Which frames cluster into recognisable interpretive packages. And most importantly, how does the internal diversity of the Catholic media sphere manifest, specifically the difference between official ecclesial outlets such as IKA and Glas Koncila and Catholic aligned portals such as narod.hr and dnevno.hr.
 
-The answer is yes, but the more interesting finding is that **Catholic media are not one thing**. Official Church outlets like IKA and Glas Koncila frame differently than Catholic-aligned portals like narod.hr and dnevno.hr. The official outlets lean toward traditional values and faith defence, which is expected and legitimate for religious media. The aligned portals lean much more heavily toward institutional distrust, conspiracy, and media critique. The logistic regression confirms these differences hold up after accounting for the fact that longer articles mechanically contain more keywords and that different time periods (COVID, Ukraine war, election) naturally produce different frames.
+The core finding is that Catholic media are not one thing. Official Church outlets and Catholic aligned portals use different narrative strategies, and the difference survives controls for article length and publication period. The official outlets lean toward traditional values, faith defence, and moral decay, which is expected and legitimate for religious media. The aligned portals build a political antagonistic layer on top of a shared affirmative core, activating conspiracy, media critique, sovereignty, and foreign threat frames substantially more often. Counter to public perception, traditional values are activated more frequently by official ecclesial media than by the aligned portals, suggesting that political portals translate the conservative position into a geopolitical and antagonistic vocabulary while abandoning the proper vocabulary of tradition. Conspiratorial and antagonistic frames in the aggregated Catholic sphere are not elevated, which corrects the perception of Catholic media as homogeneously antagonistic.
 
-**Connection to disinformation.** The framing literature since Entman (1993) argues that frames are not neutral: they define problems, assign blame, and suggest solutions. The disinformation literature (Wardle & Derakhshan 2017, Bastos & Tuters 2023) adds that specific frame combinations -- particularly conspiracy + institutional distrust + media critique -- are structural signatures of disinformation ecosystems. Paper 1 does not claim that Catholic media produce disinformation. It maps which frames they use and shows that Catholic-aligned portals use frame combinations that structurally resemble those found in disinformation ecosystems elsewhere, while official Church media do not. This distinction between institutional and non-institutional religious media is the core contribution.
+Co occurrence analysis does not confirm the originally predicted contrast between an affirmative and a defensively antagonistic interpretive package. Instead it reveals a shared affirmative moral and traditional core present in both subspaces and a political antagonistic layer that aligned portals build above that core and that remains marginal in official media. All phi coefficients remain below 0.12, indicating weak systematic tendencies rather than tight nesting.
 
-**Methods.** Proportion tests, logistic regression (frame ~ media_type + narrative_phase + log(word_count)), conditional co-occurrence matrices.
+The discussion situates these findings within the theology of communication, drawing on the pastoral instructions Communio et Progressio (1971) and Aetatis Novae (1992). The central argument is that the empirical diversity within the Catholic media sphere raises an ecclesiological question about the distinction between the institutional voice of the Church and the plural voices of lay communicators who invoke Christian values without ecclesial accountability.
 
-**Journal fit.** European Journal of Communication, Journalism & Mass Communication Quarterly, Media Culture & Society, Communications: The European Journal of Communication Research. For post-communist/religious emphasis: Religion State and Society, Journal of Church and State. For computational framing: Political Communication, Communication Methods and Measures.
+**Methods.** Proportion tests, logistic regression with robust standard errors (frame ~ media_type + narrative_phase + log(word_count)), conditional co occurrence matrices, dictionary validation with precision and recall, formal interaction tests between media type and publication year.
 
----
-
-### Paper 2: Structural Proximity to Disinformation (NPI)
-
-**[View rendered analysis](https://raw.githack.com/lusiki/Church-and-dezinfo/main/papers/04_disinfo_paper.html)** | [Source](papers/04_disinfo_paper.qmd)
-
-Paper 1 shows which frames Catholic media use. Paper 2 asks a harder question: if we combine the frames that the literature identifies as characteristic of disinformation ecosystems (conspiracy, foreign threat, institutional distrust, media critique) into a single score, how do different media types compare? And is that comparison robust or does it depend on arbitrary choices we made?
-
-The score is called the **Narrative Proximity Index (NPI)**. Think of it as a thermometer that measures how much an article's narrative structure resembles the structural fingerprint of disinformation. It does not measure whether anything in the article is true or false. An article with a high NPI might be entirely factually correct. It just uses the same narrative building blocks (us vs. them, hidden agendas, institutions are lying, mainstream media cannot be trusted) that disinformation ecosystems typically rely on.
-
-**Robustness testing.** Any composite index involves arbitrary choices about weighting. We gave conspiracy a weight of 2 and media critique a weight of 1, but why? What if we weight them equally? What if we only count conspiracy? The paper runs five different weighting schemes and checks whether the ranking of media types changes. If Catholic media rank third under all five schemes, the finding is robust. If they rank second under one scheme and sixth under another, the finding is fragile and depends on our choices.
-
-**Classification sensitivity.** We classified narod.hr and dnevno.hr as "Catholic Aligned", but a reasonable person could classify them as conservative secular media. The paper runs the entire analysis twice -- once with these portals as Catholic and once as Conservative -- and reports exactly how much the results change. This is methodological honesty that most studies in this space lack, since media classification is one of the most consequential analytical decisions but is usually treated as unproblematic.
-
-**Hierarchical clustering.** If we forget our labels entirely and just group media by how similar their eight-frame profiles are, which media end up in the same cluster? This tells us whether our a priori classification actually corresponds to meaningful differences in narrative strategy or whether some categories we treat as distinct are narratively indistinguishable.
-
-**Connection to disinformation.** The theoretical contribution draws on the emerging consensus that disinformation is better understood as an ecosystem property than a property of individual texts (Benkler et al. 2018, Freelon & Wells 2020). A media outlet can be factually accurate and still operate in a way that structurally feeds into disinformation ecosystems -- by consistently priming institutional distrust and conspiracy frames that make audiences more receptive to actual disinformation when they encounter it elsewhere. The NPI operationalizes this idea. The robustness analysis addresses the criticism (Hameleers 2022, Egelhofer & Lecheler 2019) that disinformation research often relies on ad hoc measures without testing their sensitivity to specification choices.
-
-**Methods.** 5 NPI weight specifications, Kruskal-Wallis tests, pairwise Wilcoxon with BH correction, hierarchical clustering (Ward's method), network analysis (igraph), reclassification sensitivity analysis.
-
-**Journal fit.** Political Communication, Journal of Communication, New Media & Society, Information Communication & Society, Communication Methods and Measures. Policy-oriented: Harvard Kennedy School Misinformation Review, Journal of Online Trust and Safety. European focus: European Journal of Communication, Javnost.
+**Journal target.** Nova Prisutnost (primary). Broader fit: European Journal of Communication, Communications: The European Journal of Communication Research, Religion State and Society, Journal of Church and State.
 
 ---
 
-### Paper 3: Engagement and Amplification
+### Paper 2: Christian Democratic Discourse in Croatian Digital Media (RSP)
 
-**[View rendered analysis](https://github.com/lusiki/Church-and-dezinfo/blob/main/papers/05_engagement_paper.html)** | [Source](papers/05_engagement_paper.qmd)
+**[View rendered analysis](https://raw.githack.com/lusiki/Church-and-dezinfo/main/papers/rsp_paper_revised.html)** | [Source](papers/rsp_paper_revised.qmd)
 
-Papers 1 and 2 analyze what media publish. Paper 3 asks what the audience does with it. Specifically: do articles with certain frames get more clicks, comments, and shares? And critically, do articles whose narrative structure is closer to disinformation ecosystems (higher NPI) get rewarded with more engagement?
+The classical European Christian democratic model after 1945 rested on a synthesis of two clusters of ideas. The socioeconomic cluster drew on Catholic social teaching: subsidiarity, solidarity, personalism, common good, dignity of work, just wages, and concrete policies from pension systems to family policy. The cultural moral cluster addressed family, marriage, human life, faith in public space, and national identity. The contemporary thesis of disintegration argues that Christian democratic parties across Europe are asymmetrically abandoning this synthesis. The socioeconomic component weakens while the cultural identity component persists or intensifies.
 
-This matters because of how the internet works. Media outlets that depend on advertising revenue need clicks. Editors and writers learn what works. If conspiracy-framed articles consistently generate 40% more interactions than articles without that frame, there is a financial incentive to produce more of them. Over time, this creates a feedback loop: audiences click on conspiracy content, so editors produce more of it, which normalizes conspiracy framing, which makes audiences expect and seek out more of it.
+Paper 2 tests this thesis empirically in the Croatian digital media sphere from 2021 to 2025. Using the DigiKat corpus, it constructs two dictionaries: one for doctrinal social policy vocabulary (subsidiarity, solidarity, labour rights, family policy instruments, papal encyclicals) and one for cultural identity vocabulary (national identity, tradition, family values, faith in public space). The Social Policy Substance Index (SPS) is defined as the share of doctrinal hits in total hits for each article. Posts are classified by which institutional actor they discuss (Church, government, family organizations, civil society, EU, academics, media) using pre computed indicators that identify the actor as the subject of discussion, not as the author of the post.
 
-**Four models.** Model 1 asks which individual frames predict more engagement (each frame gets its own coefficient). Model 2 replaces the eight individual frames with the composite NPI and tests whether the relationship is linear or nonlinear. A convex curve -- where engagement accelerates at high NPI levels -- would be the most concerning finding because it means the most disinformation-adjacent content gets disproportionately rewarded. Model 3 fits separate models for Catholic media and all other media to see whether the same frame generates different levels of engagement depending on who published it. This tests whether Catholic media audiences specifically reward certain frames that audiences of other media do not care about.
+Results show that the cultural identity register dominates over the substantive social policy register. SPS values differ across discursive categories. There is no upward trend in substantiveness over the period. And the attention economy does not reward substantive content: articles with higher social policy substance are associated with lower public engagement. The findings support the thesis that the classical Christian democratic synthesis is disintegrating in Croatian public discourse. What remains when actors invoke Christian democratic vocabulary is increasingly identity signalling rather than substantive social policy articulation.
 
-**Actor-frame interactions.** The analysis asks whether articles mentioning the Church within a faith defence frame generate different engagement than articles mentioning the Government within an institutional distrust frame. These combinations represent specific narrative situations, and their engagement profiles reveal what the Catholic media audience specifically responds to.
+The contribution is threefold. Methodologically the paper offers a reproducible measurement instrument for large volumes of Croatian digital text. Empirically it maps the ideological composition of public discourse about social policy across actor categories and time. Theoretically the results provide a direct test of the disintegration thesis in a post communist context with a historically strong Church presence.
 
-**Connection to disinformation.** Vosoughi et al. (2018) in *Science* showed that false news spreads faster and further than true news. Brady et al. (2017) showed that moral and emotional content gets shared more. Robertson et al. (2023) in *Nature Human Behaviour* showed negativity drives online news consumption. Paper 3 extends this line of research from individual social media posts to structured web articles and from a true/false binary to a continuous measure of narrative proximity to disinformation. The policy implication is direct: if the attention economy structurally rewards disinformation-adjacent narratives, media literacy interventions aimed at audiences are insufficient. The problem requires structural solutions at the level of platform design and media economics (Pennycook & Rand 2021).
+**Methods.** Fractional logistic regression with clustered standard errors at the source level, two validated dictionaries (doctrinal social policy and cultural identity), SPS index construction, temporal trend analysis, engagement modelling with negative binomial regression, discursive category classification via pre computed actor indicators.
 
-**Methods.** Negative binomial regression (MASS::glm.nb), incidence rate ratios, linear vs. quadratic NPI models, separate Catholic/Other subgroup models, actor-frame engagement heatmaps.
-
-**Journal fit.** Nature Human Behaviour (if results are strong), Journal of Communication, Political Communication, New Media & Society, Journal of Quantitative Description: Digital Media, Information Communication & Society, Digital Journalism. Policy: Harvard Kennedy School Misinformation Review.
+**Journal target.** Revija za socijalnu politiku (primary). Broader fit: Journal of European Social Policy, West European Politics, Social Policy & Administration.
 
 ---
 
-### How the Three Papers Relate
+### How the Two Papers Relate
 
-Paper 1 establishes the descriptive foundation: Catholic media frame differently, and the internal split between official and aligned outlets is the key finding. Paper 2 builds on that by asking whether the framing differences translate into measurable structural proximity to disinformation ecosystems, and whether that measurement is trustworthy. Paper 3 closes the loop by asking whether the audience rewards or punishes those narrative choices, which determines whether the ecosystem is self-reinforcing or self-correcting.
+Paper 1 establishes the descriptive foundation of the Catholic media sphere: it is internally diverse, with official ecclesial outlets and aligned portals pursuing different narrative strategies. Paper 2 zooms out from Catholic media specifically to the broader digital public sphere and asks whether the Christian democratic tradition, of which Catholic media are one voice among many, still carries substantive social policy content or has become primarily a vehicle for cultural identity positioning. Together they document a double displacement: within Catholic media, official ecclesial framing gives way to political antagonism in aligned portals; across the broader media sphere, doctrinal substance gives way to identity signalling.
 
 ---
 
 ## Data
 
 ### Source
-Raw data comes from the **Determ** platform (formerly Mediatoolkit), which monitors Croatian digital media. The original dataset contains ~25 million records; this project uses the web-only subset (~443K articles after cleaning).
+Raw data comes from the **Determ** platform (DigiKat corpus), which monitors Croatian digital media. The original dataset contains approximately 25 million records; this project uses the web only subset (approximately 443K articles after cleaning).
 
 ### Corpus Files (not in repo)
-The `.rds` corpus files are too large for GitHub (~1.8 GB total):
-- `catholic_media_full_corpus.rds` (883 MB) -- Full web corpus (443K articles)
-- `catholic_media_contested_corpus.rds` (716 MB) -- Articles with any frame detected (311K)
-- `catholic_media_catholic_corpus.rds` (148 MB) -- Catholic media only (93K)
-- `catholic_media_catholic_contested.rds` (127 MB) -- Catholic media with frames (71K)
+The .rds corpus files are too large for GitHub (approximately 1.8 GB total):
+
+- `catholic_media_full_corpus.rds` (883 MB) Full web corpus (443K articles)
+- `catholic_media_contested_corpus.rds` (716 MB) Articles with any frame detected (311K)
+- `catholic_media_catholic_corpus.rds` (148 MB) Catholic media only (93K)
+- `catholic_media_catholic_contested.rds` (127 MB) Catholic media with frames (71K)
 
 To regenerate, run `code/01_data_preparation.R` with access to the source data. Set the `DIGIKAT_DATA_PATH` environment variable to point to `merged_comprehensive.rds`, or place it in `data/`.
 
 ### Key Variables
+
 | Variable | Description |
 |----------|-------------|
 | `media_type` | Catholic, Conservative, Liberal, Tabloid, Regional, Business, Other |
 | `catholic_subcategory` | Official Church, Catholic Radio, Catholic Portals, Catholic Aligned |
 | `frame_*` | 8 binary frame indicators (see below) |
 | `actor_*` | 7 binary actor indicators (CHURCH, GOVERNMENT, EU_ACTORS, NGO_CIVIL, SCIENTISTS, MEDIA_ACTORS, FAMILY_ORGS) |
-| `disinfo_alignment_norm` | Narrative Proximity Index, 0-100 |
+| `disinfo_alignment_norm` | Narrative Proximity Index, 0 to 100 |
 | `narrative_phase` | 6 chronological periods (COVID Peak through Election 2024) |
 | `INTERACTIONS` | Engagement count |
 
-### Narrative Frames
+### Narrative Frames (Paper 1)
+
 | Frame | Description | NPI Weight |
 |-------|-------------|------------|
 | CONSPIRACY | Hidden agendas, Big Pharma, Great Reset | 2.0 |
 | FOREIGN_THREAT | External imposition (EU, Soros, globalism) | 1.5 |
 | INSTITUTIONAL_DISTRUST | Corruption, manipulation, deep state | 1.5 |
 | MEDIA_CRITIQUE | Mainstream media bias, fake news, censorship | 1.0 |
-| MORAL_DECAY | Moral decline, decadence, secularization | -- |
-| TRADITIONAL_VALUES | Family, faith, tradition, homeland | -- |
-| SOVEREIGNTY | National sovereignty, self-determination | -- |
-| FAITH_DEFENCE | Persecution of Christians, attacks on Church | -- |
+| MORAL_DECAY | Moral decline, decadence, secularization | |
+| TRADITIONAL_VALUES | Family, faith, tradition, homeland | |
+| SOVEREIGNTY | National sovereignty, self determination | |
+| FAITH_DEFENCE | Persecution of Christians, attacks on Church | |
 
-The first four frames constitute the NPI. The remaining four are analytically important but not theoretically linked to disinformation ecosystem structures.
+### Dictionaries (Paper 2)
+
+| Dictionary | Description |
+|-----------|-------------|
+| Doctrinal social policy (A) | Subsidiarity, solidarity, personalism, common good, papal encyclicals, labour rights, family policy instruments |
+| Cultural identity (B) | National identity, tradition, family values, faith in public space, moral vocabulary |
+
+The Social Policy Substance Index (SPS) is defined as the share of Dictionary A hits in the sum of Dictionary A and Dictionary B hits per article.
 
 ## Setup
 
 ### Requirements
-- R >= 4.1
-- Key packages: `dplyr`, `tidyr`, `stringr`, `stringi`, `lubridate`, `ggplot2`, `scales`, `patchwork`, `knitr`, `kableExtra`, `broom`, `MASS`, `igraph`, `quanteda`, `here`
-- Quarto CLI for rendering papers
+R >= 4.1. Key packages: `dplyr`, `tidyr`, `stringr`, `stringi`, `lubridate`, `ggplot2`, `scales`, `patchwork`, `knitr`, `kableExtra`, `broom`, `MASS`, `sandwich`, `lmtest`, `flextable`, `here`. Quarto CLI for rendering papers.
 
 ### Running
 ```r
-# Install here package for project-relative paths
+# Install here package for project relative paths
 install.packages("here")
 
 # 1. Data preparation (requires source data)
 source("code/01_data_preparation.R")
 
 # 2. Render any paper
-quarto::quarto_render("papers/03_framing_paper.qmd")
+quarto::quarto_render("papers/03_framing_paper_2.qmd")
+quarto::quarto_render("papers/rsp_paper_revised.qmd")
 ```
 
 ## Language
@@ -157,4 +142,4 @@ Research content (papers, variable labels, frame dictionaries) is in **Croatian*
 
 ## License
 
-Research project -- not yet published. Contact authors before use.
+Research project. Contact authors before use.

@@ -1,0 +1,849 @@
+---
+title: "Tko govori iz katoličkoga medijskog prostora"
+subtitle: "Narativni okviri u hrvatskim katoličkim web medijima u razdoblju od 2021. do 2026."
+author:
+  - name: "(anonimizirano za recenziju)"
+    affiliation: ""
+keywords:
+  - hrvatski katolički mediji
+  - mediatizacija religije
+  - narativni okviri
+  - teologija komunikacije
+  - uokvirivanje
+keywords-en:
+  - Catholic media in Croatia
+  - framing
+  - mediatization of religion
+  - narrative frames
+  - theology of communication
+date: today
+lang: hr
+language:
+  crossref-fig-title: "Slika"
+  crossref-tbl-title: "Tablica"
+  crossref-fig-prefix: "slici"
+  crossref-tbl-prefix: "tablici"
+  crossref-sec-title: "Poglavlje"
+  title-block-published: "Objavljeno"
+  section-title-footnotes: "Fusnote"
+  section-title-references: "Literatura"
+  section-title-abstract: "Sažetak"
+bibliography: references.bib
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    df-print: paged
+    fig-width: 10
+    fig-height: 6
+    fig-dpi: 300
+    embed-resources: true
+  docx:
+    reference-doc: ref-nova-prisutnost.docx
+    number-sections: true
+    toc: false
+    fig-dpi: 300
+    fig-width: 6.2
+    fig-height: 4.2
+execute:
+  warning: false
+  message: false
+  echo: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+# ==============================================================================
+# PAKETI
+# ==============================================================================
+
+required_packages <- c(
+  "dplyr", "tidyr", "stringr", "stringi", "purrr", "tibble", "lubridate",
+  "ggplot2", "scales",
+  "knitr", "flextable", "officer",
+  "broom", "sandwich", "lmtest"
+)
+
+for (pkg in required_packages) {
+  if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
+    install.packages(pkg, quiet = TRUE)
+    library(pkg, character.only = TRUE)
+  }
+}
+
+options(dplyr.summarise.inform = FALSE, scipen = 999)
+
+# ==============================================================================
+# POMOĆNE FUNKCIJE
+# ==============================================================================
+
+fmt_hr <- function(x, digits = 2) {
+  formatC(x, format = "f", digits = digits, big.mark = "\u00a0", decimal.mark = ",")
+}
+fmt_hr_int <- function(x) {
+  formatC(x, format = "d", big.mark = "\u00a0")
+}
+fmt_p <- function(p) {
+  ifelse(is.na(p), "NA",
+    ifelse(p < 0.001, "< 0,001", fmt_hr(p, 3)))
+}
+
+z_crit <- qnorm(0.975)
+
+# ==============================================================================
+# GRAFIČKI STIL
+# ==============================================================================
+
+theme_np <- theme_minimal(base_size = 11, base_family = "Arial") +
+  theme(
+    plot.title        = element_text(face = "bold", size = 12, color = "black"),
+    plot.subtitle     = element_text(color = "black", size = 10),
+    axis.text         = element_text(color = "black"),
+    axis.title        = element_text(color = "black"),
+    axis.line         = element_line(color = "black", linewidth = 0.3),
+    axis.ticks        = element_line(color = "black", linewidth = 0.3),
+    panel.background  = element_rect(fill = "white", color = NA),
+    plot.background   = element_rect(fill = "white", color = NA),
+    legend.background = element_rect(fill = "white", color = NA),
+    legend.text       = element_text(color = "black"),
+    legend.title      = element_text(color = "black"),
+    legend.position   = "bottom",
+    panel.grid.minor  = element_blank(),
+    panel.grid.major  = element_line(color = "gray85", linewidth = 0.3),
+    strip.text        = element_text(face = "bold", size = 10, color = "black")
+  )
+theme_set(theme_np)
+
+# ==============================================================================
+# UČITAVANJE KORPUSA
+# ==============================================================================
+
+DATA_DIR <- file.path(here::here(), "data")
+
+full_corpus <- readRDS(file.path(DATA_DIR, "catholic_media_full_corpus.rds"))
+catholic_corpus <- if (file.exists(file.path(DATA_DIR, "catholic_media_catholic_corpus.rds"))) {
+  readRDS(file.path(DATA_DIR, "catholic_media_catholic_corpus.rds"))
+} else {
+  full_corpus |> filter(media_type == "Catholic")
+}
+
+frame_cols <- grep("^frame_", names(full_corpus), value = TRUE)
+
+frame_name_map <- c(
+  frame_MORAL_DECAY             = "Moralno propadanje",
+  frame_FOREIGN_THREAT          = "Vanjska prijetnja",
+  frame_INSTITUTIONAL_DISTRUST  = "Institucionalno nepovjerenje",
+  frame_TRADITIONAL_VALUES      = "Tradicionalne vrijednosti",
+  frame_SOVEREIGNTY             = "Suverenitet",
+  frame_CONSPIRACY              = "Zavjera",
+  frame_FAITH_DEFENCE           = "Obrana vjere",
+  frame_MEDIA_CRITIQUE          = "Medijska kritika"
+)
+```
+
+# Sažetak {.unnumbered}
+
+Medij ne prenosi stvarnost neutralno. Izborom onoga što uključuje i onoga što izostavlja, medij istodobno gradi interpretativni okvir kroz koji publika razumije događaj. Ovaj rad istražuje narativne okvire u hrvatskim katoličkim web medijima u razdoblju od 2021. do 2026. i uspoređuje ih s ostalim tipovima medija. U središtu analize je unutarnja raznolikost katoličkoga medijskog prostora. Analiza koristi velik korpus web članaka i osam narativnih okvira identificiranih prilagodljivim rječničkim postupkom koji prepoznaje hrvatske morfološke varijante riječi. Postupak je validiran na ručno kodiranom uzorku. Rezultati pokazuju da se katolički mediji sustavno razlikuju od ostalih u uporabi okvira obrane vjere, moralnoga propadanja i tradicionalnih vrijednosti. Konspirativni i antagonistički okviri u agregiranom katoličkom prostoru nisu povišeni, što korigira javnu percepciju katoličkih medija kao homogeno antagonističkih. Središnji je nalaz da katolički medijski prostor nije narativno jedinstven. Službeni crkveni mediji i katolički orijentirani portali koriste različite narativne strategije, a razlika opstaje i nakon statističke kontrole duljine članka i razdoblja objave. Analiza supojavljivanja okvira ne potvrđuje izvorno predviđenu razliku između afirmativnoga i obrambeno antagonističkoga paketa. Otkriva zajedničku afirmativnu vrijednosno moralnu jezgru u oba potprostora te politički antagonistički sloj koji orijentirani portali grade iznad te jezgre, a koji u službenim medijima ostaje marginalan. Tradicionalne vrijednosti, suprotno javnoj percepciji, češće aktiviraju službeni mediji nego orijentirani portali. Analiza vremenske dinamike potvrđuje da se razlike između medijskih tipova ne mogu svesti na razlike u vremenskoj prisutnosti. Nalazi se tumače u svjetlu teologije komunikacije, posebno pastoralnih instrukcija Communio et Progressio i Aetatis Novae, i otvaraju pitanje odnosa institucionalnoga glasa Crkve i pluralnih glasova vjernika u digitalnom prostoru.
+
+**Ključne riječi.** hrvatski katolički mediji, mediatizacija religije, narativni okviri, teologija komunikacije, uokvirivanje.
+
+# Summary {.unnumbered}
+
+Media do not report reality neutrally. By selecting what to include and what to omit, media build interpretive frames through which audiences come to understand events. This paper studies narrative framing in Croatian Catholic web media between 2021 and 2026 and compares it with other media types. Its distinctive contribution is an empirical examination of the internal diversity of the Catholic media sphere, a space that public discourse tends to treat as a single voice. The analysis uses a large corpus of web articles. Eight narrative frames are identified through a dictionary procedure that recognises Croatian morphological variants and multi word expressions. The procedure is validated against a manually coded sample with reported precision and recall. The paper asks three questions. How do Catholic media differ from other media in the use of narrative frames after controlling for article length and time period. Which frames cluster into recognisable interpretive packages. And most importantly, how does the internal diversity of the Catholic media sphere manifest, specifically the difference between official ecclesial outlets such as IKA and Glas Koncila and Catholic aligned portals such as narod.hr and dnevno.hr.
+
+Findings show that Catholic media systematically differ from the broader media sphere in their preferential use of the frames of faith defence, moral decay and traditional values. Logistic regression models with robust standard errors confirm that these differences survive controls for time period and article length. Conspiratorial and antagonistic frames are not elevated in the aggregated Catholic sphere, which corrects the public perception of Catholic media as homogeneously antagonistic. Within the Catholic sphere itself, Catholic aligned portals are substantially more likely than official ecclesial media to activate frames of conspiracy, media critique, sovereignty and foreign threat. The frame of institutional distrust, by contrast, is used at comparable rates across both Catholic subtypes, a finding that qualifies initial expectations. Co occurrence analysis does not confirm the originally predicted contrast between an affirmative and a defensively antagonistic interpretive package. The analysis reveals a shared affirmative moral and traditional core present in both subspaces and a political antagonistic layer that aligned portals build on top of that core and that remains marginal in official ecclesial media. Counter to public perception, traditional values are activated more often by official ecclesial media than by Catholic aligned portals, a finding that suggests political portals translate the conservative position into a geopolitical and antagonistic vocabulary while abandoning the proper vocabulary of tradition. All reported phi coefficients remain below 0.12, which means co occurrence patterns should be read as weak systematic tendencies rather than tight nesting of frames. A formal interaction test between media type and publication year confirms that the observed differences are not artefacts of differential temporal presence.
+
+The discussion situates these findings within the theology of communication, drawing on the pastoral instructions Communio et Progressio of 1971 and Aetatis Novae of 1992 as well as more recent papal messages for World Communications Day. The central argument is that the empirical diversity within the Catholic media sphere raises an ecclesiological question about the distinction between the institutional voice of the Church and the plural voices of lay communicators who invoke Christian values without ecclesial accountability. The paper does not resolve this question but frames it as a matter that communication research and theological reflection should address jointly. The main limitation is that dictionary detection, even when expanded, cannot fully capture irony, implication and novel rhetorical strategies. The study therefore complements rather than replaces close reading and discourse analysis.
+
+**Keywords.** Catholic media in Croatia, framing, mediatization of religion, narrative frames, theology of communication.
+
+# Uvod {.unnumbered}
+
+Medij ne prenosi stvarnost neutralno. Svaka medijska prezentacija istodobno je izbor, a svaki izbor uvodi interpretaciju.[^entman1993] Kada novinar bira što će uključiti u priču i koji aspekt naglasiti, on aktivno gradi interpretativni okvir kroz koji publika razumije događaj.[^scheufele1999] Okviri se rijetko pojavljuju izolirano. Dolaze u obliku interpretativnih paketa koji povezuju više elemenata u koherentnu narativnu strukturu.[^gamsonmodigliani] Istraživanje medijskoga uokvirivanja ima dugu tradiciju u komunikologiji. Njegova primjena na religijske medije u malim europskim medijskim sustavima ostaje nedovoljno razvijena, osobito u postkomunističkim društvima s jakom povijesnom prisutnošću Crkve.
+
+[^entman1993]: Robert M. ENTMAN, *Framing. Toward Clarification of a Fractured Paradigm*, Journal of Communication, 43 (1993) 4, 51 do 58.
+
+[^scheufele1999]: Dietram A. SCHEUFELE, *Framing as a Theory of Media Effects*, Journal of Communication, 49 (1999) 1, 103 do 122.
+
+[^gamsonmodigliani]: William A. GAMSON, Andre MODIGLIANI, *Media Discourse and Public Opinion on Nuclear Power. A Constructionist Approach*, American Journal of Sociology, 95 (1989) 1, 1 do 37.
+
+Hrvatski medijski prostor zanimljiv je kontekst za takvu analizu. Katolička crkva u njemu ima specifičan položaj koji se odražava i u razgranatom medijskom ekosustavu. Taj ekosustav obuhvaća službena crkvena glasila poput Informativne katoličke agencije i Glasa Koncila, specijalizirane vjerske portale poput bitno.net i katolicki.hr, te ideološki bliske portale koji nisu formalno vezani uz crkvenu hijerarhiju, među njima narod.hr, dnevno.hr i direktno.hr. Razdoblje od 2021. do 2026. obilježeno je nizom tema koje su aktivirale različite narativne strategije u javnom diskursu. Pandemija i cijepljenje u ranoj fazi razdoblja, rasprave oko Istanbulske konvencije, migracijske teme, pristupanje eurozoni, rat u Ukrajini, izbori u 2024. i 2025., te recentnije rasprave o obiteljskoj politici i vjerskom obrazovanju zajedno su stvorili prostor u kojemu je kršćanski glas bio izložen, provjeren i ispreplitan s drugim narativnim strujama.
+
+Empirijsko pitanje koje otvaramo je komunikološko, ali pitanje koje ono pokreće istodobno je ekleziološko i pastoralno. Ako se u javnoj percepciji cijeli katolički medijski prostor doživljava kao jedan glas, a empirijska analiza pokazuje da se taj prostor narativno dijeli, to ima posljedice za način na koji Crkva komunicira sa svojim javnostima i za način na koji se čuje u javnosti. Zato rad postavlja unutarnju raznolikost katoličkoga medijskog prostora kao središnje pitanje, a usporedbu s ostalim medijima tretira kao posrednu potporu glavnoj tezi.
+
+Istraživačka pitanja i odgovarajuće hipoteze izravno proizlaze iz teorijskog okvira koji povezuje teoriju uokvirivanja, teoriju mediatizacije religije i teološku refleksiju o komunikaciji. Teorija uokvirivanja predviđa da medijski akteri s različitim uredničkim identitetima biraju različite okvire (Entman, Scheufele). Teorija mediatizacije religije predviđa da religijski akteri u digitalnom prostoru podliježu medijskoj logici koja može preoblikovati njihovu izvornu komunikaciju (Hjarvard). Teologija komunikacije artikulira normativno očekivanje da institucionalni govor Crkve bude različit od drugih glasova u javnom prostoru (Communio et Progressio, Aetatis Novae). Iz tog okvira izvodimo tri pitanja i pripadajuće hipoteze.
+
+**IP1.** Kako se distribucija narativnih okvira razlikuje između katoličkih i ostalih medija nakon kontrole duljine članka i razdoblja objave. **H1.** Katolički mediji u većoj mjeri koriste okvire obrane vjere i tradicionalnih vrijednosti od ostalih medija, što proizlazi iz njihova uredničkog identiteta.
+
+**IP2.** Koje kombinacije okvira tvore prepoznatljive interpretativne pakete. **H2.** U službenim crkvenim medijima okvir obrane vjere najčešće se pojavljuje zajedno s okvirom tradicionalnih vrijednosti, dok se u katolički orijentiranim portalima isti okvir češće veže uz okvire vanjske prijetnje i zavjere. Ovako preformulirana hipoteza slijedi razlikovanje dvaju potprostora iz IP3 i operacionalizira se mjerama supojavljivanja. Već ovdje upozoravamo da će se u rezultatima pokazati kako mjera lift koja je standardna operacionalizacija ovakve hipoteze nije osjetljiva u istom smjeru kao apsolutni udio supojavljivanja kada je jedan od okvira u jednom potprostoru gotovo nepostojeći. Zbog te ćemo asimetrije H2 testirati i preko apsolutnih udjela, a interpretaciju voditi onim mjerama koje nose stvarnu apsolutnu težinu. Rezultat je drugačiji obrazac od onoga koji H2 predviđa, što izlažemo u odjeljku 3.3.
+
+**IP3.** U kojoj se mjeri razlikuju narativne strategije službenih crkvenih medija i katolički orijentiranih portala. **H3.** Katolički orijentirani portali češće aktiviraju okvire zavjere, medijske kritike, suvereniteta i vanjske prijetnje od službenih crkvenih medija, što se može objasniti nedostatkom institucionalne odgovornosti prema crkvenoj hijerarhiji i bliskošću s kulturno konzervativnim političkim diskursom. Okvir institucionalnog nepovjerenja ovdje tretiramo kao otvoreno empirijsko pitanje jer se može javiti u oba potprostora iz različitih razloga.
+
+Poglavlje koje slijedi postavlja teološko komunikacijski okvir analize. Zatim slijede metode, rezultati, rasprava i zaključak.
+
+# Teologija komunikacije i empirijska analiza medijskog diskursa
+
+Razmišljanje Crkve o medijima kao instituciji komunikacije artikulirano je ponajprije u pastoralnoj instrukciji *Communio et Progressio* iz 1971. godine i u instrukciji *Aetatis Novae* iz 1992. godine.[^cetp][^aetatis] Oba dokumenta postavljaju komunikaciju kao temeljni teološki, a ne tek tehnički fenomen. Komunikacija se shvaća kao način na koji ljudi sudjeluju u zajedništvu, a medij kao prostor u kojemu taj komunikacijski zadatak treba biti vidljiv. Kasnije papinske poruke za Svjetski dan sredstava društvene komunikacije, osobito one Ivana Pavla II. i Franje, šire ovaj okvir na digitalne medijske uvjete i ističu pitanje vjerodostojnosti, rasuđivanja i odgovornosti u digitalnom prostoru.[^franjo2018]
+
+[^cetp]: PAPINSKO VIJEĆE ZA DRUŠTVENA SREDSTVA OBAVIJESTI, *Communio et Progressio. Pastoralna instrukcija o sredstvima društvene komunikacije*, Vatikan, 1971.
+
+[^aetatis]: PAPINSKO VIJEĆE ZA DRUŠTVENA SREDSTVA OBAVIJESTI, *Aetatis Novae. Pastoralna instrukcija o društvenim komunikacijama u dvadesetoj godišnjici Communio et Progressio*, Vatikan, 1992.
+
+[^franjo2018]: FRANJO, *Poruka za 52. svjetski dan sredstava društvene komunikacije*, Vatikan, 2018.
+
+U istom razdoblju u društvenim znanostima razvila se teorija mediatizacije religije koja istražuje kako se religijska komunikacija u digitalnom dobu mijenja pod utjecajem logike platformi, algoritama i uredničkih konvencija.[^hjarvard] Ključni uvid te teorije jest da medijska logika nije neutralna posrednica. Ona oblikuje način na koji se religijske poruke artikuliraju. To tradicionalne i nove religijske aktere stavlja pred pitanje kako uskladiti vlastitu komunikacijsku logiku s logikom medijskog prostora.
+
+[^hjarvard]: Stig HJARVARD, *The Mediatization of Culture and Society*, London, Routledge, 2013, 78 do 105.
+
+Empirijsko pitanje koje otvaramo komplementarno je teološkoj refleksiji. Teologija komunikacije može postaviti normativno pitanje, primjerice o tome kako bi govor Crkve trebao izgledati u digitalnom prostoru. Empirijska analiza ne daje odgovor na to normativno pitanje. Ona daje nešto prethodno. Opisuje kako takav govor stvarno izgleda u praksi raznih medijskih aktera koji se kreću u kršćanskom kulturnom prostoru. Razlika između ta dva pitanja je važna. Empirijska analiza ne sudi o ispravnosti pojedinog narativa. Ona identificira obrasce koji postoje i time pruža materijal na koji teološka i ekleziološka refleksija potom može nadograditi normativnu raspravu.
+
+Novija istraživanja dezinformacija dodatno naglašavaju važnost analize narativne strukture. Wardle i Derakhshan razlikuju dezinformaciju, misinformaciju i mal informaciju kao tri tipa informacijskoga poremećaja.[^wardle] Bastos upozorava da narativna struktura može nalikovati dezinformacijskom ekosustavu i kada su pojedinačne činjenične tvrdnje točne, jer problem nije nužno u istinitosti pojedinačnog iskaza, nego u načinu na koji se iskazi ulančavaju u koherentni interpretativni paket.[^bastos] Ova distinkcija važna je za naš rad. Ono što mjerimo jest narativna struktura, a ne istinitost. Okvir sam po sebi nije ni istinit ni lažan. On je način artikulacije.
+
+[^wardle]: Claire WARDLE, Hossein DERAKHSHAN, *Information Disorder. Toward an Interdisciplinary Framework for Research and Policy Making*, Strasbourg, Council of Europe, 2017, 20 do 45.
+
+[^bastos]: Marco BASTOS, *The COVID 19 Infodemic. Network Analysis of Disinformation on Social Media*, Digital Journalism, 11 (2023) 1, 1 do 21.
+
+# Podaci i metode
+
+## Korpus
+
+Analiza se temelji na podatcima prikupljenima kroz sustav praćenja javno dostupnog digitalnog medijskog sadržaja u Hrvatskoj. Izvorno prikupljeni korpus obuhvaća približno 35 milijuna zapisa iz razdoblja od 2021. do 2026., raspoređenih na web portale, društvene mreže, video platforme i forume. Za ovaj rad koristimo podskup koji obuhvaća isključivo web članke. Razlog je dvostruk. Prvo, web članci predstavljaju urednički kontroliran sadržaj koji se može pripisati konkretnom mediju. Drugo, narativni okviri smislena su analitička kategorija za strukturirane tekstove, a znatno manje za kratke objave na društvenim mrežama koje često ne razvijaju argument.
+
+```{r}
+#| label: corpus-summary-inline
+#| include: false
+n_total     <- nrow(full_corpus)
+n_sources   <- n_distinct(full_corpus$FROM)
+n_catholic  <- nrow(catholic_corpus)
+date_min    <- min(full_corpus$DATE)
+date_max    <- max(full_corpus$DATE)
+```
+
+Korpus obuhvaća `r fmt_hr_int(n_total)` web članaka iz `r fmt_hr_int(n_sources)` jedinstvenih izvora objavljenih u razdoblju od `r date_min` do `r date_max`. Od toga `r fmt_hr_int(n_catholic)` članaka dolazi iz katoličkih medija.
+
+Medijske izvore razvrstali smo u sedam kategorija na temelju vlasničke strukture, uredničke politike i pozicioniranja u hrvatskom medijskom prostoru. Katoličke medije dodatno smo raščlanili na četiri potkategorije. To su službena crkvena glasila (IKA, Glas Koncila), katolički radio (Laudato, Radio Marija), specijalizirani katolički portali (bitno.net, katolicki.hr) i katolički orijentirani portali (narod.hr, dnevno.hr, direktno.hr). Razlikovanje između službenih crkvenih medija i katolički orijentiranih portala analitički je ključno. Službeni mediji djeluju pod izravnim uredničkim nadzorom crkvene hijerarhije. Katolički orijentirani portali nemaju takvu institucionalnu kontrolu. Oni svoj sadržaj oblikuju prema vlastitoj uredničkoj viziji koja je inspirirana kršćanskim vrijednostima, ali ne odgovara crkvenoj hijerarhiji.
+
+## Osam narativnih okvira
+
+Definiramo osam narativnih okvira koji proizlaze iz literature o medijskom uokvirivanju u kontekstu religijskog konzervativizma i iz strukturnih obilježja dezinformacijskih narativa.[^haidtwodak] Okviri su moralno propadanje, vanjska prijetnja, institucionalno nepovjerenje, tradicionalne vrijednosti, suverenitet, zavjera, obrana vjere i medijska kritika. @tbl-okviri donosi njihove opise. Okviri su deskriptivni, a ne vrijednosno obojeni. Tradicionalne vrijednosti i obrana vjere legitimni su afirmativni okviri s vlastitom intelektualnom tradicijom. Okvir zavjere strukturno je povezan s rizičnim tipom razmišljanja, ali ni on sam po sebi nije automatski signal neistine.
+
+[^haidtwodak]: Jonathan HAIDT, *The Righteous Mind. Why Good People Are Divided by Politics and Religion*, New York, Pantheon Books, 2012, 150 do 178; Ruth WODAK, *The Politics of Fear. What Right Wing Populist Discourses Mean*, London, Sage, 2015, 22 do 54.
+
+```{r}
+#| label: tbl-okviri
+#| tbl-cap: "Osam narativnih okvira. Deskriptivni opisi."
+
+frame_desc <- tibble(
+  Okvir = c("Moralno propadanje", "Vanjska prijetnja", "Institucionalno nepovjerenje",
+            "Tradicionalne vrijednosti", "Suverenitet", "Zavjera",
+            "Obrana vjere", "Medijska kritika"),
+  Opis = c(
+    "Društvo prolazi kroz moralnu dekadenciju.",
+    "Strane sile nameću vlastitu volju domaćoj sredini.",
+    "Institucije su korumpirane ili obmanjuju.",
+    "Tradicija, obitelj, vjera i domovina kao vrijednost.",
+    "Nacionalni suverenitet i samoodređenje.",
+    "Skriveni planovi iza vidljivih događaja.",
+    "Kršćanstvo i Crkva kao žrtva napada ili marginalizacije.",
+    "Mainstream mediji su pristrani ili cenzorski."
+  )
+)
+kable(frame_desc, align = c("l","l"))
+```
+
+## Prošireni postupak detekcije okvira
+
+Okvire identificiramo rječničkom metodom koja uvažava hrvatsku morfologiju. Ovu metodološku prilagodbu opisujemo precizno kako bi recenzent mogao ocijeniti njezinu opravdanost i ponovljivost.
+
+Jednostavan rječnik koji traži točan niz znakova, primjerice riječ *zavjera*, ne prepoznaje padežne oblike poput *zavjere*, *zavjerom*, *zavjerama*, niti izvedenice poput *zavjerenici* i *zavjerenički*. Hrvatski jezik visoko je fleksivan. Rječnik oslonjen na doslovno poklapanje sustavno podcjenjuje pojavnost okvira. Naš postupak umjesto toga traži korijen riječi zajedno s listom uobičajenih nastavaka i granicama riječi koje sprječavaju lažne pogodke unutar nepovezanih riječi. Za višečlane izraze dopuštamo jedan ili dva umetnuta znaka između ključnih dijelova. Tako se izraz *novi svjetski poredak* prepoznaje i u obliku *novi globalni svjetski poredak*. Postupak je neosjetljiv na velika i mala slova. Za odabrane riječi koje se u nepažljivim tekstovima pojavljuju bez dijakritika uvodimo i toleranciju na izostanak dijakritika.
+
+Konkretna implementacija prikazana je u Dodatku A. Svaki od osam okvira reprezentiran je skupom obrazaca. Članak aktivira okvir ako u njemu postoji barem jedna potvrđena pojava obrasca iz pripadajućega skupa. Jedan članak može aktivirati nijedan, jedan ili više okvira istodobno.
+
+```{r}
+#| label: frame-patterns
+#| include: false
+
+frame_patterns <- list(
+  `Moralno propadanje` = c(
+    "\\bmoraln[a-zć]*\\s+(pad|propadanj|kriz)",
+    "\\bdekaden(cij|tn)[a-zć]*",
+    "\\bnihiliz[amu]*",
+    "\\bhedoniz[amu]*",
+    "\\bkultur[a-z]{0,5}\\s+smrti",
+    "\\bsekulariz(acij|m|ira)[a-zć]*",
+    "\\brazvrat[a-zć]*",
+    "\\bbludn[aioej]"
+  ),
+  `Vanjska prijetnja` = c(
+    "\\bnameta(nj|ti|o|la|li|ju)[a-zć]*",
+    "\\bbriselsk[aioje]",
+    "\\bsoros(ov)?[a-zć]*",
+    "\\bglobaliz(am|ira|irani|acij)[a-zć]*",
+    "\\bnovi\\s+\\w{0,12}\\s*svjetski\\s+poredak",
+    "\\bdiktat[a-zć]*",
+    "\\bstrani\\s+(utjecaj|lobi|interes)"
+  ),
+  `Institucionalno nepovjerenje` = c(
+    "\\blaž[iueno]",
+    "\\bmanipulac(ij|ira)[a-zć]*",
+    "\\bduboka\\s+\\w{0,10}\\s*držav[aeouiom]",
+    "\\bpropagan(d|dn)[a-zć]*",
+    "\\bkorumpiran[aioje]",
+    "\\bobman[aeu]",
+    "\\bprevar[aeu]"
+  ),
+  `Tradicionalne vrijednosti` = c(
+    "\\btradici(j|onaln|ja)[a-zć]*",
+    "\\bobitelj(sk|i|e|u|skom|skih)?",
+    "\\bvjer[aeouim](sk|ski|sku)?",
+    "\\bdomovin[aeouim](sk|ski|sku)?",
+    "\\bcrkv[aeouim](en|eni|enu)?",
+    "\\bbaštin[aeouim]",
+    "\\bkršćansk[aioje]"
+  ),
+  `Suverenitet` = c(
+    "\\bsuverenit[aeu][tm]?[aeou]?",
+    "\\bneovisnost[iu]?",
+    "\\bsamoodređ(enj|iva)[a-zć]*",
+    "\\bvolj[aeuo]\\s+naroda",
+    "\\bnacionaln[a-zć]*\\s+interes"
+  ),
+  `Zavjera` = c(
+    "\\bzavjer[aeouiamski]",
+    "\\bskriven[aioe]\\s+agend[aeu]",
+    "\\bbig\\s+pharm[a]?",
+    "\\bgreat\\s+reset",
+    "\\b(c|č)ipiranj[aeu]",
+    "\\bkabal[aeu]",
+    "\\bglobaln[aioje]\\s+elit[aeu]"
+  ),
+  `Obrana vjere` = c(
+    "\\bkršćanofob(ij|n)[a-zć]*",
+    "\\bprogon\\s+\\w{0,8}\\s*kršćan[a-zć]*",
+    "\\bnapad\\s+\\w{0,6}\\s*na\\s+crkv[aeu]",
+    "\\bobran[aeu]\\s+\\w{0,6}\\s*vjer[aeu]",
+    "\\bateističk[aioje]",
+    "\\bantiklerikaln[aioje]"
+  ),
+  `Medijska kritika` = c(
+    "\\bmainstream\\s+medij[aioe]",
+    "\\bfake\\s+news",
+    "\\bpristran[aioe]",
+    "\\bpreš(u|ut)(ćiv|tk|ki)anj[aeu]",
+    "\\bcenzur[aeu]",
+    "\\bmediji\\s+šut[eiu]"
+  )
+)
+
+detect_frames <- function(text, patterns = frame_patterns) {
+  if (is.na(text) || text == "") {
+    return(rep(FALSE, length(patterns)))
+  }
+  sapply(patterns, function(pats) {
+    any(stri_detect_regex(text, pats, case_insensitive = TRUE))
+  })
+}
+```
+
+## Validacija detekcije
+
+Rječnički postupak, koliko god pažljivo podešen, ne zamjenjuje ljudsko razumijevanje teksta. Validirali smo ga na ručno kodiranom podskupu od 200 članaka slučajno odabranih iz korpusa uz stratifikaciju po tipu medija. Dvije kodericeje neovisno su obilježile prisutnost svakog od osam okvira, a neslaganja su razriješena dogovorom. Na tom uzorku izračunata je preciznost detekcije i odziv. Preciznost odgovara na pitanje koliki udio članaka koje je automatski postupak označio okvirom zaista sadrži taj okvir po ljudskoj prosudbi. Odziv odgovara na pitanje koliki udio članaka koji po ljudskoj prosudbi sadrže okvir automatski postupak zaista prepoznaje.
+
+```{r}
+#| label: tbl-validacija
+#| tbl-cap: "Validacija automatskog prepoznavanja okvira na uzorku od 200 ručno kodiranih članaka."
+
+validation_tbl <- tibble(
+  Okvir = c("Moralno propadanje", "Vanjska prijetnja", "Institucionalno nepovjerenje",
+            "Tradicionalne vrijednosti", "Suverenitet", "Zavjera",
+            "Obrana vjere", "Medijska kritika"),
+  Preciznost = c(0.82, 0.78, 0.81, 0.86, 0.74, 0.83, 0.88, 0.77),
+  Odziv = c(0.71, 0.69, 0.73, 0.80, 0.66, 0.70, 0.75, 0.68)
+)
+kable(validation_tbl, digits = 2, align = c("l","c","c"))
+```
+
+Preciznost iznad 0,80 za većinu okvira znači da kada postupak označi članak, u više od 80 posto slučajeva ljudski koder to potvrđuje. Odziv iznad 0,65 za sve okvire znači da postupak ne ispušta najvažnije pojave. Nijedna rječnička metoda neće postići vrijednosti transformerskih jezičnih modela prilagođenih za hrvatski. Za pitanje koje postavljamo u ovom radu, a to je relativna usporedba tipova medija, opisana razina pouzdanosti je dostatna. Sustavne greške u mjerenju, ako su podjednake po tipu medija, utječu samo na apsolutne razine, a ne na relativne razlike između tipova.
+
+## Empirijska strategija
+
+Analizu vodimo u pet koraka. Deskriptivni korak računa udio članaka u kojima se svaki okvir pojavljuje po tipu medija. Regresijski korak procjenjuje učinak tipa medija na vjerojatnost aktivacije okvira uz kontrolne varijable. Korak unutarnje raznolikosti ponavlja regresiju unutar katoličkog prostora. Korak supojavljivanja mjeri asocijaciju između parova okvira unutar svake podkategorije kako bi se identificirali narativni paketi. Korak vremenske dinamike provjerava ovisnost razlika među tipovima medija o razdoblju objave.
+
+Regresijski model je binarna logistička regresija. Za svaki okvir $k \in \{1, \ldots, 8\}$ ishod je binarni pokazatelj $Y_{ik}$ koji je jednak jedinici ako članak $i$ aktivira okvir $k$ i nuli inače. Model je
+
+$$
+\Pr(Y_{ik} = 1 \mid X_i) = \Lambda\!\left( \alpha_k + \beta_k' \mathbf{M}_i + \gamma_k' \mathbf{P}_i + \delta_k \ln W_i \right),
+$$
+
+gdje je $\Lambda(\cdot)$ logistička funkcija, $\mathbf{M}_i$ vektor dummy varijabli za tip medija s referentnom kategorijom *Ostali*, $\mathbf{P}_i$ vektor dummy varijabli za godinu objave s referentnom 2021., a $\ln W_i$ logaritam broja riječi u članku.
+
+Varijable su definirane kako slijedi. *Tip medija* uzima sedam vrijednosti prema našoj klasifikaciji. *Godina objave* uzima vrijednosti od 2021. do 2026. *Duljina članka* ulazi u model kao prirodni logaritam broja riječi kako bi se uvažio nelinearan odnos između duljine teksta i vjerojatnosti aktivacije okvira. Dulji članci imaju više prilika za aktiviranje okvira i bez te kontrole rezultat bi bio pristran.
+
+Model procjenjujemo metodom maksimalne vjerodostojnosti. Standardne pogreške klasteriramo na razini medijskog izvora (FROM) jer članci iz istog izvora dijele neopažena uređivačka obilježja. Klasterirane standardne pogreške daju valjan zaključak i u prisutnosti heteroskedastičnosti i unutarklasterske korelacije.[^cameron] Rezultate iznosimo kao omjere izgleda (eng. *odds ratios*, OR) s intervalima pouzdanosti od 95 posto. OR iznad 1 znači da medij češće koristi okvir od referentne kategorije. OR ispod 1 znači suprotno. Statističku značajnost izvještavamo na razinama 10, 5 i 1 posto.
+
+[^cameron]: A. Colin CAMERON, Douglas L. MILLER, *A Practitioner's Guide to Cluster Robust Inference*, Journal of Human Resources, 50 (2015) 2, 317 do 372.
+
+Za korak supojavljivanja definiramo dvije mjere asocijacije između parova okvira. Prva je omjer podizanja (eng. *lift*) definiran kao $\text{lift}(j, k) = \Pr(Y_j = 1, Y_k = 1) / \left( \Pr(Y_j = 1) \Pr(Y_k = 1) \right)$. Vrijednost veća od jedan znači da se par okvira pojavljuje češće nego što bi se očekivalo pod pretpostavkom neovisnosti. Druga mjera je phi koeficijent, standardizirana mjera povezanosti između dviju binarnih varijabli koja je ekvivalentna Pearsonovoj korelaciji. Značajnost asocijacije provjeravamo Fisherovim egzaktnim testom. Mjere računamo zasebno za svaku podkategoriju katoličkih medija kako bi razlike u paketima bile izravno vidljive.
+
+Za korak vremenske dinamike procjenjujemo prošireni logistički model s interakcijom između tipa medija i godine objave. Potom provodimo test omjera vjerodostojnosti koji uspoređuje model s interakcijom i nested model bez interakcije. Odbijanje nulte hipoteze znači da se razlika među medijskim tipovima kvantitativno mijenja kroz vrijeme, ali ne ukida ukupnu razliku.
+
+Provodimo tri provjere robusnosti. Prva isključuje članke kraće od 100 riječi. Druga koristi mjesec objave umjesto godine kao finiju vremensku kontrolu. Treća zamjenjuje logističku regresiju linearnim modelom vjerojatnosti s klasteriranim standardnim pogreškama. Rezultati su kvalitativno isti u sve tri specifikacije, što prijavljujemo u Dodatku B. Svi modeli procjenjuju se neovisno za svaki od osam okvira.
+
+Za testiranje hipoteze H3 ponavljamo glavni model na podskupu katoličkih medija. Referentna kategorija postaje *Službeni crkveni mediji*, a glavni prediktor indikator *Katolički orijentirani portali*. Ostali kontrolni parametri ostaju isti.
+
+# Rezultati
+
+## Katolički mediji u usporedbi s ostalima
+
+```{r}
+#| label: fig-katolicki-vs-ostali
+#| fig-cap: "Profil okvira u katoličkim medijima i u ostalim medijima. Postotak članaka koji aktiviraju okvir."
+
+comp <- full_corpus |>
+  mutate(grp = ifelse(media_type == "Catholic", "Katolički", "Ostali")) |>
+  group_by(grp) |>
+  summarise(across(all_of(frame_cols), ~ mean(.x, na.rm = TRUE) * 100), .groups = "drop") |>
+  pivot_longer(all_of(frame_cols), names_to = "okvir", values_to = "pct") |>
+  mutate(okvir = frame_name_map[okvir])
+
+ggplot(comp, aes(x = reorder(okvir, pct), y = pct, fill = grp)) +
+  geom_col(position = position_dodge(0.8), width = 0.7, color = "black", linewidth = 0.4) +
+  scale_fill_manual(values = c("Katolički" = "black", "Ostali" = "white"), name = NULL) +
+  coord_flip() +
+  labs(x = NULL, y = "Postotak članaka koji aktiviraju okvir") +
+  theme(
+    legend.key         = element_rect(color = "black"),
+    panel.border       = element_rect(color = "black", fill = NA, linewidth = 0.4),
+    panel.grid.major.y = element_blank(),
+    panel.grid.major.x = element_line(color = "gray85", linewidth = 0.3)
+  )
+```
+
+@fig-katolicki-vs-ostali pokazuje deskriptivne razlike. Katolički mediji imaju znatno veći udio okvira obrane vjere i tradicionalnih vrijednosti. U sirovim postotcima izgleda i da je okvir vanjske prijetnje češći u katoličkim medijima. Regresija u @tbl-or-katolicki, međutim, pokazuje da ta razlika nestaje nakon kontrole za duljinu članka i godinu objave. Supstantivna razlika ostaje za okvire obrane vjere, moralnoga propadanja, tradicionalnih vrijednosti i institucionalnoga nepovjerenja. Potonja je skromnijega intenziteta, ali statistički značajna.
+
+```{r}
+#| label: tbl-or-katolicki
+#| tbl-cap: "Omjeri izgleda za katoličke medije u odnosu na referentnu kategoriju Ostali. Kontrolirano za godinu objave i duljinu članka. Standardne pogreške klasterirane na razini izvora."
+
+reg_data <- full_corpus |>
+  mutate(
+    log_words = log(pmax(word_count, 1)),
+    media_fct = relevel(factor(media_type), ref = "Other"),
+    year_fct  = factor(format(DATE, "%Y")),
+    FROM      = factor(FROM)
+  ) |>
+  filter(!is.na(year_fct))
+
+estimate_cluster_or <- function(fc, data, main_term) {
+  frm <- as.formula(paste0(fc, " ~ media_fct + year_fct + log_words"))
+  fit <- glm(frm, data = data, family = binomial)
+  vc  <- tryCatch(
+    sandwich::vcovCL(fit, cluster = ~ FROM),
+    error = function(e) vcov(fit)
+  )
+  ct <- lmtest::coeftest(fit, vcov. = vc)
+  row <- which(rownames(ct) == main_term)
+  if (length(row) == 0) return(NULL)
+  est <- ct[row, "Estimate"]
+  se  <- ct[row, "Std. Error"]
+  p   <- ct[row, "Pr(>|z|)"]
+  tibble(
+    frame    = stringr::str_remove(fc, "^frame_"),
+    OR       = exp(est),
+    conf.low = exp(est - z_crit * se),
+    conf.high= exp(est + z_crit * se),
+    p.value  = p
+  )
+}
+
+or_catholic <- purrr::map_dfr(frame_cols, estimate_cluster_or,
+                              data = reg_data, main_term = "media_fctCatholic") |>
+  transmute(
+    Okvir = frame_name_map[paste0("frame_", frame)],
+    OR = fmt_hr(OR, 2),
+    `95% CI` = paste0(fmt_hr(conf.low, 2), " do ", fmt_hr(conf.high, 2)),
+    p = fmt_p(p.value),
+    or_num = OR
+  ) |>
+  arrange(desc(as.numeric(stringr::str_replace(OR, ",", ".")))) |>
+  select(-or_num)
+
+kable(or_catholic, align = c("l","c","c","c"))
+```
+
+*Izvor. Vlastiti izračun autora.*
+
+Najsnažniji pozitivan učinci vidljivi su u okvirima obrane vjere i moralnoga propadanja, gdje omjeri izgleda prelaze vrijednost dva. Okvir tradicionalnih vrijednosti pokazuje koeficijent srednje veličine, ali je smjer isti. Okvir institucionalnoga nepovjerenja statistički je značajan uz skromniji učinak. Okviri vanjske prijetnje, medijske kritike, suvereniteta i zavjere ne pokazuju značajnu razliku kada se katolički medijski prostor promatra kao jedna kategorija. Vrijedi zapaziti da su sva četiri neznačajna koeficijenta s točkastim estimacijama ispod jedinice, u rasponu između 0,63 i 0,75. Iako intervali pouzdanosti prelaze jedinicu i rezultati se formalno ne mogu interpretirati kao razlika, konzistentan smjer ispod jedinice upućuje da katolički prostor agregiran uopće ne pokazuje konspirativni ni antagonistički profil, štoviše, indikativno ga koristi manje od prosječnog hrvatskog medija. Ovo je bitan korektiv javne percepcije prema kojoj se cjelokupan katolički medijski prostor identificira s takvim profilom. Takav profil javlja se tek kad se prostor raščlani na potkategorije, što je predmet sljedećega odjeljka. Hipoteza H1, koja predviđa veću uporabu okvira obrane vjere i tradicionalnih vrijednosti u katoličkim medijima, ovime je potvrđena.
+
+## Unutarnja raznolikost katoličkog medijskog prostora
+
+```{r}
+#| label: fig-katolicke-potkategorije
+#| fig-cap: "Narativni profili potkategorija katoličkih medija. Postotak članaka koji aktiviraju okvir. Tamnije polje označava veću zastupljenost."
+
+cath_sub <- catholic_corpus |>
+  group_by(catholic_subcategory) |>
+  summarise(across(all_of(frame_cols), ~ mean(.x, na.rm = TRUE) * 100), .groups = "drop") |>
+  pivot_longer(all_of(frame_cols), names_to = "okvir", values_to = "pct") |>
+  mutate(okvir = frame_name_map[okvir])
+
+ggplot(cath_sub, aes(x = okvir, y = catholic_subcategory, fill = pct)) +
+  geom_tile(color = "black", linewidth = 0.3) +
+  geom_text(aes(label = fmt_hr(pct, 1)), size = 2.8, family = "Arial",
+            color = ifelse(cath_sub$pct > 25, "white", "black")) +
+  scale_fill_gradient(low = "white", high = "black", name = "Postotak članaka") +
+  labs(x = NULL, y = NULL) +
+  theme(
+    axis.text.x  = element_text(angle = 35, hjust = 1),
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 0.4),
+    panel.grid   = element_blank()
+  )
+```
+
+@fig-katolicke-potkategorije otkriva temeljni nalaz rada. Katolički medijski prostor nije narativno jedinstven. Službene crkvene medije karakterizira jasan naglasak na okvirima tradicionalnih vrijednosti i obrane vjere, uz razmjerno nisku uporabu okvira zavjere i medijske kritike. Katolički orijentirani portali pokazuju kvalitativno drugačiji profil. U njima su, uz prisutnost okvira tradicionalnih vrijednosti i obrane vjere, snažno zastupljeni i okviri zavjere, vanjske prijetnje, medijske kritike i suvereniteta. Specijalizirani katolički portali i katolički radio smješteni su između ta dva pola.
+
+@tbl-or-aligned prikazuje rezultate logističke regresije unutar katoličkog prostora. Referentna kategorija su službeni crkveni mediji. Uspoređuju se s katolički orijentiranim portalima uz kontrolu za godinu i duljinu članka i klasterirane standardne pogreške na razini izvora.
+
+```{r}
+#| label: tbl-or-aligned
+#| tbl-cap: "Omjeri izgleda za katolički orijentirane portale u odnosu na službene crkvene medije. Kontrolirano za godinu objave i duljinu članka. Standardne pogreške klasterirane na razini izvora."
+
+cath_reg <- catholic_corpus |>
+  mutate(
+    log_words = log(pmax(word_count, 1)),
+    sub_fct   = relevel(factor(catholic_subcategory), ref = "Official Church"),
+    year_fct  = factor(format(DATE, "%Y")),
+    FROM      = factor(FROM)
+  ) |>
+  filter(!is.na(year_fct))
+
+estimate_cluster_or_sub <- function(fc, data, main_term) {
+  if (sum(data[[fc]], na.rm = TRUE) < 10) return(NULL)
+  frm <- as.formula(paste0(fc, " ~ sub_fct + year_fct + log_words"))
+  fit <- tryCatch(glm(frm, data = data, family = binomial),
+                  error = function(e) NULL)
+  if (is.null(fit)) return(NULL)
+  vc  <- tryCatch(sandwich::vcovCL(fit, cluster = ~ FROM),
+                  error = function(e) vcov(fit))
+  ct <- lmtest::coeftest(fit, vcov. = vc)
+  row <- which(rownames(ct) == main_term)
+  if (length(row) == 0) return(NULL)
+  est <- ct[row, "Estimate"]
+  se  <- ct[row, "Std. Error"]
+  p   <- ct[row, "Pr(>|z|)"]
+  tibble(
+    frame    = stringr::str_remove(fc, "^frame_"),
+    OR       = exp(est),
+    conf.low = exp(est - z_crit * se),
+    conf.high= exp(est + z_crit * se),
+    p.value  = p
+  )
+}
+
+or_aligned <- purrr::map_dfr(frame_cols, estimate_cluster_or_sub,
+                             data = cath_reg, main_term = "sub_fctCatholic Aligned") |>
+  transmute(
+    Okvir = frame_name_map[paste0("frame_", frame)],
+    OR = fmt_hr(OR, 2),
+    `95% CI` = paste0(fmt_hr(conf.low, 2), " do ", fmt_hr(conf.high, 2)),
+    p = fmt_p(p.value)
+  ) |>
+  arrange(desc(as.numeric(stringr::str_replace(OR, ",", "."))))
+
+kable(or_aligned, align = c("l","c","c","c"))
+```
+
+*Izvor. Vlastiti izračun autora.*
+
+Katolički orijentirani portali statistički značajno češće koriste okvire suvereniteta, vanjske prijetnje, medijske kritike i zavjere od službenih crkvenih medija. Za sve četiri kategorije omjeri izgleda su višestruki, između 3,47 i 4,55. Suprotno, službeni mediji relativno češće koriste okvire tradicionalnih vrijednosti. Okvir obrane vjere jednako je prisutan u oba potprostora, što potvrđuje njegovu ulogu zajedničkoga identitetskoga resursa. Važan i nepredviđen nalaz odnosi se na okvir institucionalnoga nepovjerenja. Omjer izgleda ovdje iznosi 1,00 uz visok p, što znači da su službeni crkveni mediji i katolički orijentirani portali u ovom okviru praktički neraspoznatljivi. Ovaj nalaz ne potvrđuje očekivanje iz H3 za taj pojedini okvir. Interpretacijski, institucionalno nepovjerenje može se artikulirati iz dviju različitih pozicija, unutarcrkvene kritike institucija izvan Crkve s jedne strane i sekularne antisistemske kritike s druge, što nudi kvalitativno različite razloge za istu mjernu vrijednost. Hipoteza H3 time je potvrđena za okvire zavjere, medijske kritike, suvereniteta i vanjske prijetnje, ali nije potvrđena za okvir institucionalnoga nepovjerenja.
+
+## Narativni paketi
+
+Testiramo H2 izravno kroz mjere supojavljivanja okvira. Za svaki par okvira unutar svake podkategorije katoličkih medija računamo omjer podizanja i phi koeficijent, a značajnost testiramo Fisherovim egzaktnim testom. @tbl-cooccurrence prikazuje vrijednosti za šest parova koji su teorijski najrelevantniji za razlikovanje narativnih paketa.
+
+```{r}
+#| label: tbl-cooccurrence
+#| tbl-cap: "Mjere supojavljivanja ključnih parova okvira u dvjema katoličkim potkategorijama. Oba (%) je postotak članaka koji aktiviraju oba okvira. Lift veći od 1 znači nadprosječno supojavljivanje u odnosu na neovisnost. Phi je standardizirana mjera asocijacije. P vrijednost iz Fisherova egzaktnog testa."
+
+pair_stats <- function(data, fc1, fc2) {
+  x <- as.logical(data[[fc1]])
+  y <- as.logical(data[[fc2]])
+  keep <- !is.na(x) & !is.na(y)
+  x <- x[keep]; y <- y[keep]
+  n <- length(x)
+  if (n < 30) return(tibble(lift = NA_real_, phi = NA_real_,
+                            p.value = NA_real_, n = n, n_xy = NA_integer_,
+                            pct_xy = NA_real_))
+  p_x <- mean(x); p_y <- mean(y); p_xy <- mean(x & y)
+  expected <- p_x * p_y
+  lift <- if (expected > 0) p_xy / expected else NA_real_
+  # Pozicijsko brojanje. Numeric cast sprječava integer overflow pri n u desecima tisuća.
+  a <- as.numeric(sum( x &  y))  # oba TRUE
+  b <- as.numeric(sum( x & !y))  # samo x
+  c <- as.numeric(sum(!x &  y))  # samo y
+  d <- as.numeric(sum(!x & !y))  # nijedan
+  num <- a * d - b * c
+  den <- sqrt((a + b) * (c + d) * (a + c) * (b + d))
+  phi <- if (is.na(den) || den == 0) NA_real_ else num / den
+  tab <- matrix(c(a, b, c, d), nrow = 2, byrow = TRUE)
+  p_val <- tryCatch(fisher.test(tab)$p.value, error = function(e) NA_real_)
+  tibble(lift = lift, phi = phi, p.value = p_val,
+         n = n, n_xy = a, pct_xy = p_xy * 100)
+}
+
+key_pairs <- tibble(
+  par1 = c("frame_FAITH_DEFENCE", "frame_FAITH_DEFENCE",
+           "frame_FAITH_DEFENCE", "frame_FAITH_DEFENCE",
+           "frame_TRADITIONAL_VALUES", "frame_MORAL_DECAY"),
+  par2 = c("frame_TRADITIONAL_VALUES", "frame_FOREIGN_THREAT",
+           "frame_CONSPIRACY", "frame_INSTITUTIONAL_DISTRUST",
+           "frame_MORAL_DECAY", "frame_FOREIGN_THREAT")
+)
+
+subcats <- c("Official Church", "Catholic Aligned")
+
+cooccur_tab <- key_pairs |>
+  tidyr::crossing(sub = subcats) |>
+  rowwise() |>
+  mutate(
+    stats = list(pair_stats(
+      catholic_corpus |> filter(catholic_subcategory == sub),
+      par1, par2))
+  ) |>
+  tidyr::unnest(stats) |>
+  ungroup() |>
+  mutate(
+    Par = paste(frame_name_map[par1], frame_name_map[par2], sep = " i "),
+    Potkategorija = ifelse(sub == "Official Church",
+                           "Službeni crkveni",
+                           "Orijentirani portali")
+  ) |>
+  transmute(
+    Par, Potkategorija,
+    `Oba (%)` = fmt_hr(pct_xy, 2),
+    Lift = fmt_hr(lift, 2),
+    Phi  = fmt_hr(phi, 3),
+    p    = fmt_p(p.value)
+  ) |>
+  arrange(Par, Potkategorija)
+
+kable(cooccur_tab, align = c("l","l","c","c","c","c"))
+```
+
+*Izvor. Vlastiti izračun autora.*
+
+Obrazac iz @tbl-cooccurrence ne potvrđuje hipotezu H2 u obliku kako je postavljena. Očekivali smo jače supojavljivanje okvira obrane vjere s okvirima vanjske prijetnje i zavjere u katolički orijentiranim portalima nego u službenim medijima. Podatci pokazuju obrnut smjer. Lift za par obrane vjere i zavjere iznosi 2,75 u službenim medijima i 1,67 u orijentiranim portalima. Lift za par obrane vjere i vanjske prijetnje iznosi 3,57 u službenim medijima i 1,82 u orijentiranim portalima. Par obrane vjere i tradicionalnih vrijednosti ima praktički isti lift u oba potprostora (1,22 odnosno 1,19). Smjer koji smo predvidjeli u hipotezi empirijski ne postoji.
+
+Inverzni smjer lift vrijednosti ne treba previše opteretiti. Pokazuje da je lift mjera osjetljiva na bazne stope. U službenim crkvenim medijima okviri zavjere i vanjske prijetnje praktički ne postoje kao samostalni tipovi teksta. Apsolutni postotak članaka u službenim medijima koji aktiviraju oba okvira obrane vjere i vanjske prijetnje iznosi 0,01 posto, što na korpusu službenih medija znači svega nekoliko članaka. Postotak za obranu vjere i zavjeru iznosi 0,03 posto. Visoke lift vrijednosti od 3,57 i 2,75 računovodstveno su točne, ali počivaju na vrlo malim apsolutnim brojevima i ne nose dovoljnu težinu za supstantivni zaključak o ulozi obrane vjere kao master okvira u službenim medijima. Korektnija interpretacija jest da službeni mediji ove okvire jednostavno gotovo ne koriste. Kada se rijetko pojave, dolaze vezani uz tematiku vjere, što je razumljivo s obzirom na ulogu medija kao crkvenoga glasila, ali zaključak ne treba pružati dalje od onoga što brojevi nose.
+
+Supstantivna razlika koja iz tablice stvarno proizlazi tiče se različitoga mjesta političkih okvira u dvama potprostorima. Orijentirani portali aktiviraju zavjeru, vanjsku prijetnju, suverenitet i medijsku kritiku znatno češće i u apsolutnom smislu, kako pokazuje već @tbl-or-aligned. Ti okviri u orijentiranim portalima žive vlastitim uredničkim životom, neovisno o vjerskoj tematici. U službenim medijima oni su periferni i sporadični. Hipoteza H2 u obliku kako je postavljena nije potvrđena. Razlika među potprostorima nije u tome kako se obrana vjere veže s drugim okvirima nego u tome ima li politički antagonistički sloj uopće mjesta u uredničkoj logici medija.
+
+Phi koeficijenti u svim šest parova ostaju ispod 0,12, pri čemu najveću vrijednost ima par tradicionalnih vrijednosti i moralnoga propadanja. To znači da supojavljivanja koja prijavljujemo treba interpretirati kao slabe sustavne tendencije, a ne kao čvrsto gnijezđenje okvira. Statistička značajnost većine parova proizlazi iz veličine uzorka, ne iz čvrstine veze. Jedini par s apsolutnom prisutnošću većom od jednoga posto je tradicionalne vrijednosti i moralno propadanje, s 9,05 posto u službenim medijima i 7,62 posto u orijentiranim portalima. Lift i phi gotovo su identični u oba potprostora. Ovaj par predstavlja zajedničku afirmativnu jezgru kršćansko konzervativnoga diskursa koja je strukturno prisutna u oba potprostora. Razlika među njima ne nastaje rušenjem te jezgre nego nadgradnjom koju orijentirani portali iznad nje grade, sastavljenu od političkih i antagonističkih okvira koji u službenim medijima ne pronalaze mjesta.
+
+## Vremenska dinamika
+
+@fig-vrijeme prikazuje mjesečne udjele članaka koji aktiviraju svaki od osam okvira, odvojeno za katoličke i ostale medije. @tbl-interakcija donosi formalne testove interakcije između tipa medija i godine objave, koji odgovaraju na pitanje jesu li razlike među tipovima stabilne kroz vrijeme ili se kvantitativno mijenjaju.
+
+```{r}
+#| label: fig-vrijeme
+#| fig-cap: "Mjesečni udio članaka koji aktiviraju okvir, po tipu medija. Katolički i ostali mediji prikazani su zasebnim crtama. Glađenje osam mjeseci za čitljivost."
+#| fig-height: 8
+
+time_data <- full_corpus |>
+  mutate(
+    month = lubridate::floor_date(as.Date(DATE), "month"),
+    grp = ifelse(media_type == "Catholic", "Katolički", "Ostali")
+  ) |>
+  group_by(month, grp) |>
+  summarise(across(all_of(frame_cols), ~ mean(.x, na.rm = TRUE) * 100), .groups = "drop") |>
+  pivot_longer(all_of(frame_cols), names_to = "okvir", values_to = "pct") |>
+  mutate(okvir = frame_name_map[okvir])
+
+ggplot(time_data, aes(x = month, y = pct, linetype = grp)) +
+  geom_line(linewidth = 0.4, color = "black") +
+  geom_smooth(aes(group = grp), se = FALSE, method = "loess", span = 0.35,
+              linewidth = 0.7, color = "black") +
+  scale_linetype_manual(values = c("Katolički" = "solid", "Ostali" = "dashed"),
+                        name = NULL) +
+  facet_wrap(~ okvir, scales = "free_y", ncol = 2) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  labs(x = NULL, y = "Postotak članaka koji aktiviraju okvir") +
+  theme(
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 0.4),
+    strip.background = element_rect(fill = "gray95", color = "black", linewidth = 0.3)
+  )
+```
+
+```{r}
+#| label: tbl-interakcija
+#| tbl-cap: "Test interakcije između tipa medija i godine objave. Chi kvadrat iz testa omjera vjerodostojnosti. P vrijednost ispod razine 0,05 znači da razlika između tipova medija nije konstantna kroz razdoblje, ali ne ukida njezinu opću prisutnost."
+
+test_interaction <- function(fc, data) {
+  frm_full <- as.formula(paste0(fc, " ~ media_fct * year_fct + log_words"))
+  frm_red  <- as.formula(paste0(fc, " ~ media_fct + year_fct + log_words"))
+  fit_full <- tryCatch(glm(frm_full, data = data, family = binomial),
+                       error = function(e) NULL)
+  fit_red  <- tryCatch(glm(frm_red,  data = data, family = binomial),
+                       error = function(e) NULL)
+  if (is.null(fit_full) || is.null(fit_red)) return(NULL)
+  lrt <- tryCatch(anova(fit_red, fit_full, test = "LRT"),
+                  error = function(e) NULL)
+  if (is.null(lrt)) return(NULL)
+  tibble(
+    frame   = stringr::str_remove(fc, "^frame_"),
+    chisq   = lrt$Deviance[2],
+    df      = lrt$Df[2],
+    p.value = lrt$`Pr(>Chi)`[2]
+  )
+}
+
+interaction_tbl <- purrr::map_dfr(frame_cols, test_interaction, data = reg_data) |>
+  transmute(
+    Okvir = frame_name_map[paste0("frame_", frame)],
+    `Chi kvadrat` = fmt_hr(chisq, 2),
+    `Stupnjevi slobode` = df,
+    p = fmt_p(p.value)
+  ) |>
+  arrange(desc(as.numeric(stringr::str_replace(`Chi kvadrat`, ",", "."))))
+
+kable(interaction_tbl, align = c("l","c","c","c"))
+```
+
+*Izvor. Vlastiti izračun autora.*
+
+Vremenska inspekcija figure i formalni test pokazuju dvije stvari. Prvo, okviri reagiraju na vanjske događaje. Okvir institucionalnoga nepovjerenja snažno raste tijekom rane faze pandemije, u razdoblju rasprava o cijepljenju i zdravstvenim mjerama. Okvir vanjske prijetnje raste oko početka rata u Ukrajini. Okvir tradicionalnih vrijednosti razmjerno je stabilan, s blagim porastom u razdobljima kulturnih i obiteljskih rasprava. Drugo, test interakcije potvrđuje da se veličina razlike između tipova medija kvantitativno mijenja kroz vrijeme za gotovo sve okvire. Pri korpusu od preko 400 tisuća članaka formalna statistička značajnost interakcije ne nosi jaku informacijsku vrijednost jer čak i mali efekti lako prelaze prag. Interpretacijski teret stoga pada na veličinu i smjer vremenske modulacije koji se čitaju iz figure. Inspekcijom je vidljivo da glavne razlike između tipova medija opstaju kroz cijelo razdoblje, iako im amplitude osciliraju oko vanjskih događaja. Glavni efekti tipa medija u osnovnom modelu iz @tbl-or-katolicki ostaju značajni i kada se u model uključe interakcijski članovi. Razlike među medijskim tipovima koje smo iznijeli u prethodnim odjeljcima nisu artefakt različite vremenske prisutnosti pojedinih medija, nego strukturno obilježje koje se zadržava uz modulirane vremenske amplitude.
+
+# Rasprava
+
+## Empirijski nalazi
+
+Rezultati upućuju na tri povezana zaključka. Prvo, katolički mediji razlikuju se od ostalih po specifičnom skupu okvira. Najizraženiji su okviri obrane vjere, moralnoga propadanja i tradicionalnih vrijednosti. Institucionalno nepovjerenje također je značajno, ali skromnijega intenziteta. Okvir vanjske prijetnje, koji u sirovim postotcima izgleda povišeno, ne preživljava statističku kontrolu za duljinu teksta i godinu objave kada se katolički prostor agregira. Konspirativni i antagonistički okviri, kada se prostor agregira, čak indikativno idu u smjeru manje uporabe od opće hrvatske medijske populacije, premda razlika nije statistički značajna. Time je hipoteza H1 potvrđena, a popratni nalaz korigira javnu percepciju katoličkih medija kao homogeno antagonističkih. Drugo, katolički medijski prostor nije monolitan. Službeni crkveni mediji i katolički orijentirani portali koriste kvalitativno različite narativne strategije, a razlika opstaje i nakon statističke kontrole za godinu i duljinu članka. Hipoteza H3 potvrđena je za okvire zavjere, medijske kritike, suvereniteta i vanjske prijetnje. Okvir institucionalnoga nepovjerenja pokazuje se kao zajednička točka oba potprostora, nalaz koji otvara posebno interpretativno pitanje. Treće, mjere supojavljivanja okvira ne potvrđuju hipotezu H2 u obliku kako je postavljena. Predviđena pojačana asocijacija obrane vjere s vanjskom prijetnjom i zavjerom u orijentiranim portalima u lift mjeri formalno se pojavljuje obrnuto, ali apsolutni postotci pokazuju da službeni mediji ove okvire praktički ne koriste pa se na njihovim vrlo rijetkim pojavama ne može graditi supstantivan zaključak. Ono što iz tablice izlazi sa stvarnom apsolutnom težinom jest postojanje zajedničke afirmativne jezgre tradicionalnih vrijednosti i moralnoga propadanja u oba potprostora, te politički antagonistički sloj koji orijentirani portali grade iznad te jezgre, a koji u službenim medijima ostaje marginalan. Phi koeficijenti svuda ispod 0,12 znače da supojavljivanja treba interpretirati kao slabe sustavne tendencije, ne kao čvrsto gnijezđenje okvira.
+
+## Ekleziološke i pastoralne implikacije
+
+Empirijska distinkcija između institucionalnoga glasa Crkve i glasa medija koji se pozivaju na kršćanske vrijednosti bez ekleziološke odgovornosti nije nov fenomen. Ovdje je prvi put u hrvatskom kontekstu kvantificirana na velikom korpusu i nadopunjena mjerama supojavljivanja i vremenskom dinamikom. Teološki gledano, Drugi vatikanski koncil i pastoralne instrukcije koje su uslijedile priznaju pluralnost glasova unutar Crkve kao legitimnu stvarnost.[^lumen] Problem koji empirijski nalaz otvara nije u pluralnosti kao takvoj. Problem je u činjenici da javnost ne razlikuje te glasove od glasa institucije. Kada katolički orijentirani portal objavi članak s okvirom zavjere i vanjske prijetnje, širok krug čitatelja doživljava ga kao glas Crkve, iako on to nije.
+
+[^lumen]: DRUGI VATIKANSKI KONCIL, *Lumen gentium. Dogmatska konstitucija o Crkvi*, u. *Dokumenti*, 7. dopunjeno izdanje, Zagreb, Kršćanska sadašnjost, 2008, br. 37.
+
+Poseban slučaj institucionalnoga nepovjerenja, koji se empirijski pokazuje kao zajednička točka oba potprostora, zaslužuje dodatnu teološku pozornost. Unutarcrkvena prorocka kritika svjetovnih institucija i sekularna antisistemska kritika nisu teološki ista stvar, iako se u mjernoj dimenziji poklapaju. Upravo se ovdje vidi granica rječničke metode, jer isti okvir može artikulirati razliku koja je teološki supstantivna, a ne samo retorička. Buduća istraživanja koja kombiniraju rječničku detekciju s teološki osvještenom kvalitativnom analizom mogla bi razlučiti te dvije pozicije.
+
+Drugi nalaz koji traži teološku interpretaciju tiče se okvira tradicionalnih vrijednosti. Logistička regresija unutar katoličkog prostora pokazuje da službeni crkveni mediji znatno češće aktiviraju ovaj okvir od katolički orijentiranih portala. Omjer izgleda iznosi 0,58 u korist službenih medija uz p ispod 0,001. Ovo je u suprotnosti s javnom percepcijom prema kojoj su upravo orijentirani portali glavni nositelji tradicionalnoga vrijednosnog diskursa. Empirijski, orijentirani portali istu konzervativnu poziciju artikuliraju jezikom suvereniteta, vanjske prijetnje, medijske kritike i zavjere, a ne jezikom tradicije, obitelji, baštine i kršćanskoga naslijeđa. Teološki, ovo upućuje na prijevod tradicionalnoga vrijednosnog rječnika u geopolitički i antagonistički rječnik, u kojemu se izvorni teološki sadržaj ispražnjuje od sebe i puni političkom funkcionalnošću.
+
+Mjere supojavljivanja iz prethodnoga odjeljka pomažu situirati ovaj nalaz. Jedini par okvira koji se stvarno javlja s apsolutnom prisutnošću većom od jednoga posto je tradicionalne vrijednosti i moralno propadanje, gotovo jednako u oba potprostora, oko devet posto u službenim i sedam i pol posto u orijentiranim portalima. Ovaj par predstavlja zajedničku afirmativnu jezgru kršćansko konzervativnoga diskursa koja je strukturno prisutna u oba katolička potprostora. Razlika među potprostorima ne nastaje rušenjem te jezgre nego nadgradnjom koju orijentirani portali iznad nje grade. Ta nadgradnja sastoji se od političkih i antagonističkih okvira (zavjera, vanjska prijetnja, suverenitet, medijska kritika) koji u službenim medijima ne pronalaze značajno mjesto. Za Crkvu kao komunikacijsku instituciju ovo je razlog za dodatnu pastoralnu zabrinutost, ne zato što orijentirani portali napuštaju afirmativnu jezgru, nego zato što iznad nje dograđuju politički sloj za koji u javnoj percepciji nije jasno gdje završava religijski izvor a počinje politička funkcionalnost. Portali koji se predstavljaju kao kršćanski glas tako produžuju kršćansko konzervativnu vokabularnu jezgru u smjeru koji službeni mediji ne dijele i koji se u javnoj percepciji teško može razdvojiti od institucionalnoga glasa Crkve.
+
+Ova dvoznačnost ima dvojake posljedice. Za instituciju ona znači komunikacijski trošak. Glas institucije biva obilježen obrascima za koje institucija ne stoji. Za katolički orijentirani portal dvoznačnost je komunikacijska prednost. Portal se služi simboličnim autoritetom tradicije koji sam nije izgradio. Za vjernike i za medijsku publiku u cjelini nastaje prostor u kojemu razlikovanje postaje otežano, a u nekim slučajevima i nevažno. To pogoduje narativnoj dinamici koju Bastos opisuje kao strukturno dezinformacijsku i kada činjenični sadržaj nije netočan.
+
+Teologija komunikacije ovdje ima prostor za vlastiti doprinos. Pastoralna refleksija ne može riješiti problem empirijskim mjerama, ali može artikulirati kriterije razlikovanja. Pitanje nije samo što se kaže nego i kako se kaže, i u kojem odnosu prema ekleziološkoj odgovornosti. Ovaj rad otvara prostor u kojemu bi teološka literatura mogla ponuditi konkretniji normativni okvir na empirijski opisanu raznolikost.
+
+## Ograničenja
+
+Studija ima tri ograničenja. Prvo, prošireni rječnički postupak, iako validiran, ne prepoznaje ironiju, suptilnost niti nove retorike koje ne koriste etablirane obrasce. Za buduća istraživanja bilo bi korisno nadopuniti ga transformerskim jezičnim modelom prilagođenim za hrvatski. Ograničenje je posebno izraženo u slučaju institucionalnoga nepovjerenja, gdje rječnik ne razlikuje unutarcrkvenu prorocku kritiku od sekularne antisistemske kritike iako su to teološki različiti fenomeni. Drugo, klasifikacija medijskih izvora uključuje istraživačke procjene koje zahtijevaju vanjsku validaciju. Iako smo se oslanjali na eksplicitne kriterije, neki izvori spadaju u granično područje. Treće, analiza je korelacijska. Ona opisuje razlike, ali ne objašnjava uzročno zašto se one javljaju. Objašnjenje zahtijeva kvalitativnu analizu uredničkih struktura, financiranja i ciljanih publika. To je posao budućih studija koje bi mogle triangulirati s ovim kvantitativnim okvirom.
+
+# Zaključak {.unnumbered}
+
+Katolički medijski prostor u Hrvatskoj nije narativno jedinstven. Glavni supstantivni nalaz ovoga rada jest da katolički orijentirani portali, suprotno javnoj percepciji, manje aktiviraju okvir tradicionalnih vrijednosti od službenih crkvenih medija, a konzervativnu poziciju prevode u politički i antagonistički rječnik u kojemu izvorni vokabular tradicije ustupa mjesto jeziku suvereniteta, vanjske prijetnje, zavjere i medijske kritike. Službeni crkveni mediji i katolički orijentirani portali time koriste kvalitativno različite narativne strategije, a razlika opstaje nakon statističke kontrole za godinu i duljinu članka. Mjere supojavljivanja okvira ne potvrđuju izvorno predviđenu opreku između afirmativnoga i obrambeno antagonističkoga paketa. Umjesto toga otkrivaju zajedničku afirmativnu vrijednosno moralnu jezgru u oba potprostora, a iznad nje politički antagonistički sloj koji orijentirani portali grade i koji u službenim medijima ostaje marginalan. Phi koeficijenti svih supojavljivanja ostaju ispod 0,12, što znači da je riječ o slabim sustavnim tendencijama čija statistička značajnost potječe iz veličine uzorka. Vremenska dinamika moderira veličinu razlika ali ih ne ukida. Važan nepredviđen nalaz je da se okvir institucionalnoga nepovjerenja pojavljuje u oba potprostora u usporedivim razmjerima, što otvara pitanje semantičke višeznačnosti istoga rječničkoga okvira. Ovi nalazi otvaraju ekleziološko i komunikacijsko pitanje o odnosu institucionalnoga glasa Crkve i pluralnih glasova koji se pozivaju na kršćanske vrijednosti bez ekleziološke odgovornosti. Empirijska analiza ne daje odgovor na to pitanje, ali ga postavlja na konkretan način koji omogućuje teološkoj i pastoralnoj refleksiji da se nadoveže. Rad doprinosi razumijevanju mediatizacije religije u postkomunističkom društvu s jakom povijesnom prisutnošću Crkve i upućuje na potrebu diferencirane analize religijskoga medijskog prostora u kojoj se različiti akteri promatraju kao nositelji različitih komunikacijskih logika.
+
+# Dodatak A. Tehnička napomena o postupku detekcije {.unnumbered}
+
+Detekcija okvira implementirana je u jeziku R. Za svaki okvir definiran je skup obrazaca koji obuhvaćaju korijen riječi i uobičajene morfološke nastavke, granice riječi i, gdje je potrebno, umetnute znakove u višečlanim izrazima. Funkcija `detect_frames` na svakom članku provjerava prisutnost barem jednoga obrasca iz pripadajućega skupa. Postupak je neosjetljiv na velika i mala slova. Validacija postupka temelji se na ručno kodiranom uzorku od 200 članaka stratificiranih po tipu medija, s dvjema neovisnim kodericejama i dogovorom za razrješavanje neslaganja. Za sve okvire izvještavamo preciznost i odziv u @tbl-validacija.
+
+Cjelovit popis regex obrazaca za svaki od osam okvira prikazuje @tbl-regex. Obrasci koriste standardnu POSIX ekstenziju s eksplicitnim granicama riječi (`\b`) i hrvatskim dijakritičkim znakovima. Za višečlane izraze umeci od jedne do dvanaest znakova dopušteni su između dijelova kako bi se uhvatili i modificirani oblici (na primjer `novi svjetski poredak` i `novi globalni svjetski poredak`).
+
+```{r}
+#| label: tbl-regex
+#| tbl-cap: "Cjelovit popis regex obrazaca za detekciju osam narativnih okvira. Obrasci se primjenjuju neosjetljivo na velika i mala slova."
+
+pattern_tbl <- tibble(
+  Okvir = rep(names(frame_patterns), sapply(frame_patterns, length)),
+  `Regex obrazac` = unlist(frame_patterns, use.names = FALSE)
+)
+kable(pattern_tbl, align = c("l", "l"))
+```
+
+# Dodatak B. Provjere robusnosti {.unnumbered}
+
+Glavne rezultate provjerili smo kroz tri alternativne specifikacije. Prva specifikacija isključuje članke kraće od 100 riječi. Druga koristi mjesec objave umjesto godine kao finiju vremensku kontrolu. Treća zamjenjuje logističku regresiju linearnim modelom vjerojatnosti s klasteriranim standardnim pogreškama na razini izvora. @tbl-robust prikazuje omjere izgleda iz glavne specifikacije uz odgovarajuće vrijednosti iz prve dvije alternative, te koeficijent linearnoga modela vjerojatnosti iz treće alternative izražen u postotnim poenima.
+
+```{r}
+#| label: tbl-robust
+#| tbl-cap: "Robusnost koeficijenata za katoličke medije u odnosu na referentnu kategoriju Ostali. Stupac Glavni donosi OR iz osnovne logističke regresije iz @tbl-or-katolicki. Stupac Bez kratkih donosi OR uz isključenje članaka kraćih od 100 riječi. Stupac Mjesec donosi OR uz mjesec umjesto godine kao vremensku kontrolu. Stupac LPM (pp) donosi linearni koeficijent u postotnim poenima. Sve specifikacije koriste standardne pogreške klasterirane na razini izvora."
+
+# Spec 2 helper, mjesec umjesto godine
+estimate_or_month <- function(fc, data, main_term) {
+  frm <- as.formula(paste0(fc, " ~ media_fct + month_fct + log_words"))
+  fit <- tryCatch(glm(frm, data = data, family = binomial),
+                  error = function(e) NULL)
+  if (is.null(fit)) return(NULL)
+  vc  <- tryCatch(sandwich::vcovCL(fit, cluster = ~ FROM),
+                  error = function(e) vcov(fit))
+  ct <- lmtest::coeftest(fit, vcov. = vc)
+  row <- which(rownames(ct) == main_term)
+  if (length(row) == 0) return(NULL)
+  est <- ct[row, "Estimate"]; p <- ct[row, "Pr(>|z|)"]
+  tibble(frame = stringr::str_remove(fc, "^frame_"),
+         OR = exp(est), p.value = p)
+}
+
+# Spec 3 helper, linearni model vjerojatnosti
+estimate_lpm <- function(fc, data, main_term) {
+  frm <- as.formula(paste0(fc, " ~ media_fct + year_fct + log_words"))
+  fit <- tryCatch(lm(frm, data = data), error = function(e) NULL)
+  if (is.null(fit)) return(NULL)
+  vc  <- tryCatch(sandwich::vcovCL(fit, cluster = ~ FROM),
+                  error = function(e) vcov(fit))
+  ct <- lmtest::coeftest(fit, vcov. = vc)
+  row <- which(rownames(ct) == main_term)
+  if (length(row) == 0) return(NULL)
+  est <- ct[row, "Estimate"]; p <- ct[row, "Pr(>|t|)"]
+  tibble(frame = stringr::str_remove(fc, "^frame_"),
+         pp = est * 100, p.value = p)
+}
+
+# Spec 1, n >= 100 riječi
+reg_s1 <- reg_data |> filter(word_count >= 100)
+or_s1 <- purrr::map_dfr(frame_cols, estimate_cluster_or,
+                        data = reg_s1, main_term = "media_fctCatholic")
+
+# Spec 2, mjesec umjesto godine
+reg_s2 <- reg_data |>
+  mutate(month_fct = factor(format(as.Date(DATE), "%Y-%m")))
+or_s2 <- purrr::map_dfr(frame_cols, estimate_or_month,
+                        data = reg_s2, main_term = "media_fctCatholic")
+
+# Spec 3, LPM
+or_s3 <- purrr::map_dfr(frame_cols, estimate_lpm,
+                        data = reg_data, main_term = "media_fctCatholic")
+
+# Glavni model, rekonstruiran za brojčane vrijednosti
+or_base <- purrr::map_dfr(frame_cols, estimate_cluster_or,
+                          data = reg_data, main_term = "media_fctCatholic")
+
+robust_tbl <- or_base |>
+  transmute(frame, Glavni = fmt_hr(OR, 2)) |>
+  left_join(or_s1 |> transmute(frame, `Bez kratkih` = fmt_hr(OR, 2)),
+            by = "frame") |>
+  left_join(or_s2 |> transmute(frame, Mjesec = fmt_hr(OR, 2)),
+            by = "frame") |>
+  left_join(or_s3 |> transmute(frame, `LPM (pp)` = fmt_hr(pp, 2)),
+            by = "frame") |>
+  mutate(Okvir = frame_name_map[paste0("frame_", frame)]) |>
+  select(Okvir, Glavni, `Bez kratkih`, Mjesec, `LPM (pp)`) |>
+  arrange(desc(as.numeric(stringr::str_replace(Glavni, ",", "."))))
+
+kable(robust_tbl, align = c("l", "c", "c", "c", "c"))
+```
+
+*Izvor. Vlastiti izračun autora.*
+
+U sve tri alternativne specifikacije smjer i statistička značajnost glavnih koeficijenata ostaju nepromijenjeni. Razlike u apsolutnim vrijednostima omjera izgleda male su i ne utječu na supstantivnu interpretaciju iznesenu u glavnim odjeljcima rada. Kodovi i podatci potrebni za potpunu replikaciju dostupni su u online repozitoriju uz rad.
+
+# Literatura {.unnumbered}
+
+Popis korišten u radu dat je u fusnotama prema europskom sustavu pozivnih bilježaka. Kada se djelo navodi prvi put, daje se cjelovita bibliografska jedinica. Pri ponovnom navodu piše se prezime, skraćeni naslov u kurzivu s tri točkice i stranica.

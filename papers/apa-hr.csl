@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="utf-8"?>
+<style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0" demote-non-dropping-particle="never" default-locale="hr-HR">
+  <info>
+    <title>APA (Hrvatska varijanta, Revija za socijalnu politiku)</title>
+    <id>http://www.rsp.hr/csl/apa-hr-rsp</id>
+    <link href="http://www.rsp.hr/csl/apa-hr-rsp" rel="self"/>
+    <category citation-format="author-date"/>
+    <category field="social_science"/>
+    <summary>Hrvatska varijanta APA stila sukladna smjernicama Revije za socijalnu politiku. Točka iza godine u navodima, dvotočka između godine i stranice, spojnica i za dva autora i skracenica i sur. za tri ili vise.</summary>
+    <updated>2026-04-13T00:00:00+00:00</updated>
+  </info>
+
+  <locale xml:lang="hr">
+    <terms>
+      <term name="et-al">i sur.</term>
+      <term name="and">i</term>
+      <term name="editor" form="short">ur.</term>
+      <term name="edition" form="short">izd.</term>
+      <term name="page" form="short">str.</term>
+      <term name="retrieved">Posjećeno</term>
+      <term name="from">na mrežnoj stranici</term>
+      <term name="available-at">dostupno na</term>
+      <term name="no-date">bez datuma</term>
+      <term name="in">U</term>
+      <term name="accessed">pristupljeno</term>
+    </terms>
+  </locale>
+
+  <macro name="author-short">
+    <names variable="author">
+      <name form="short" and="text" delimiter=", " et-al-min="3" et-al-use-first="1"/>
+      <substitute>
+        <names variable="editor"/>
+        <names variable="translator"/>
+        <text variable="title" form="short"/>
+      </substitute>
+    </names>
+  </macro>
+
+  <macro name="author-full">
+    <names variable="author" delimiter=", ">
+      <name and="text" delimiter=", " delimiter-precedes-last="never"
+            initialize-with=". " name-as-sort-order="all" sort-separator=", "/>
+      <label form="short" prefix=" (" suffix=".)"/>
+      <substitute>
+        <names variable="editor">
+          <name and="text" delimiter=", " delimiter-precedes-last="never"
+                initialize-with=". " name-as-sort-order="all" sort-separator=", "/>
+          <label form="short" prefix=" (" suffix=".)"/>
+        </names>
+        <text variable="title"/>
+      </substitute>
+    </names>
+  </macro>
+
+  <macro name="issued-year">
+    <choose>
+      <if variable="issued">
+        <date variable="issued">
+          <date-part name="year"/>
+        </date>
+        <text value="."/>
+      </if>
+      <else>
+        <text term="no-date"/>
+      </else>
+    </choose>
+  </macro>
+
+  <macro name="issued-year-citation">
+    <choose>
+      <if variable="issued">
+        <date variable="issued">
+          <date-part name="year"/>
+        </date>
+        <text value="."/>
+        <text variable="year-suffix"/>
+      </if>
+      <else>
+        <text term="no-date"/>
+      </else>
+    </choose>
+  </macro>
+
+  <macro name="issued-year-bibliography">
+    <choose>
+      <if variable="issued">
+        <date variable="issued" prefix="(" suffix=").">
+          <date-part name="year"/>
+        </date>
+      </if>
+      <else>
+        <text term="no-date" prefix="(" suffix=")."/>
+      </else>
+    </choose>
+  </macro>
+
+  <macro name="title-container">
+    <choose>
+      <if type="book chapter" match="any">
+        <text variable="container-title" font-style="italic"/>
+      </if>
+      <else-if type="article-journal article-magazine article-newspaper" match="any">
+        <text variable="container-title" font-style="italic"/>
+      </else-if>
+      <else>
+        <text variable="container-title" font-style="italic"/>
+      </else>
+    </choose>
+  </macro>
+
+  <macro name="title-main">
+    <choose>
+      <if type="book thesis report" match="any">
+        <text variable="title" font-style="italic"/>
+      </if>
+      <else>
+        <text variable="title"/>
+      </else>
+    </choose>
+  </macro>
+
+  <macro name="locator-volume-issue">
+    <group delimiter=", ">
+      <group>
+        <text variable="volume" font-style="italic"/>
+        <text variable="issue" prefix="(" suffix=")"/>
+      </group>
+      <text variable="page"/>
+    </group>
+  </macro>
+
+  <macro name="publisher">
+    <group delimiter=": ">
+      <text variable="publisher-place"/>
+      <text variable="publisher"/>
+    </group>
+  </macro>
+
+  <macro name="access">
+    <choose>
+      <if variable="URL">
+        <group delimiter=" ">
+          <text term="retrieved"/>
+          <date variable="accessed" form="text"/>
+          <text term="from"/>
+          <text variable="URL"/>
+        </group>
+      </if>
+    </choose>
+  </macro>
+
+  <citation et-al-min="3" et-al-use-first="1"
+            disambiguate-add-year-suffix="true"
+            disambiguate-add-names="true"
+            disambiguate-add-givenname="true"
+            collapse="year-suffix">
+    <layout prefix="(" suffix=")" delimiter="; ">
+      <group>
+        <text macro="author-short" suffix=", "/>
+        <text macro="issued-year-citation"/>
+        <text variable="locator" prefix=":"/>
+      </group>
+    </layout>
+  </citation>
+
+  <bibliography hanging-indent="true" et-al-min="8" et-al-use-first="7"
+                entry-spacing="0" line-spacing="2">
+    <sort>
+      <key macro="author-short"/>
+      <key variable="issued"/>
+    </sort>
+    <layout>
+      <group delimiter=" ">
+        <text macro="author-full" suffix=""/>
+        <text macro="issued-year-bibliography"/>
+        <choose>
+          <if type="chapter paper-conference" match="any">
+            <group delimiter=". ">
+              <text macro="title-main"/>
+              <group delimiter=" ">
+                <text term="in"/>
+                <names variable="editor" suffix=" ">
+                  <name and="text" initialize-with=". " delimiter=", "/>
+                  <label form="short" prefix="(" suffix=")"/>
+                </names>
+                <text variable="container-title" font-style="italic"/>
+                <text variable="page" prefix="(str. " suffix=")"/>
+              </group>
+              <text macro="publisher"/>
+            </group>
+          </if>
+          <else-if type="article-journal article-magazine" match="any">
+            <group delimiter=". ">
+              <text macro="title-main"/>
+              <text macro="title-container"/>
+              <text macro="locator-volume-issue"/>
+            </group>
+          </else-if>
+          <else-if type="book" match="any">
+            <group delimiter=". ">
+              <text macro="title-main"/>
+              <text macro="publisher"/>
+            </group>
+          </else-if>
+          <else-if type="webpage" match="any">
+            <group delimiter=". ">
+              <text macro="title-main"/>
+              <text macro="access"/>
+            </group>
+          </else-if>
+          <else>
+            <group delimiter=". ">
+              <text macro="title-main"/>
+              <text macro="title-container"/>
+              <text macro="publisher"/>
+              <text macro="access"/>
+            </group>
+          </else>
+        </choose>
+      </group>
+    </layout>
+  </bibliography>
+</style>

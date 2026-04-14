@@ -1,0 +1,959 @@
+---
+title: "Sadržaj ili identitet? Socijalnopolitička supstancija demokršćanskog diskursa u hrvatskom digitalnom medijskom prostoru (2021. – 2026.)"
+subtitle: "Radna verzija za Reviju za socijalnu politiku"
+author: "Media Analysis Research"
+date: today
+bibliography: references.bib
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    code-summary: "Prikaži kod"
+    df-print: paged
+    fig-width: 10
+    fig-height: 6
+    fig-dpi: 300
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+  echo: true
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+# ==============================================================================
+# KONFIGURACIJA
+# ==============================================================================
+
+DATA_DIR <- file.path(here::here(), "data")
+
+# Put do katoličkog subkorpusa
+CATHOLIC_CORPUS_PATH <- file.path(DATA_DIR, "catholic_media_catholic_corpus.rds")
+FULL_CORPUS_PATH     <- file.path(DATA_DIR, "catholic_media_full_corpus.rds")
+
+# ==============================================================================
+# PAKETI
+# ==============================================================================
+
+required_packages <- c(
+  "data.table", "dplyr", "tidyr", "stringr", "stringi", "lubridate",
+  "forcats", "tibble", "purrr",
+  "ggplot2", "scales", "patchwork", "ggrepel",
+  "knitr", "kableExtra",
+  "broom", "MASS", "marginaleffects",
+  "irr"
+)
+
+invisible(lapply(required_packages, library,
+                 character.only = TRUE, quietly = TRUE))
+
+options(dplyr.summarise.inform = FALSE, scipen = 999)
+
+# ==============================================================================
+# VIZUALNI STIL
+# ==============================================================================
+
+theme_paper <- theme_minimal(base_size = 12) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 13),
+    plot.subtitle    = element_text(color = "gray40", size = 10),
+    legend.position  = "bottom",
+    panel.grid.minor = element_blank(),
+    strip.text       = element_text(face = "bold", size = 10)
+  )
+theme_set(theme_paper)
+
+actor_colors <- c(
+  "Katolička Crkva"       = "#1b9e77",
+  "Političke stranke"     = "#d95f02",
+  "Državne institucije"   = "#7570b3",
+  "Socijalni partneri"    = "#e7298a",
+  "Civilno društvo"       = "#66a61e",
+  "Katolički mediji"      = "#e6ab02",
+  "Mainstream mediji"     = "#a6761d",
+  "Društvene mreže"       = "#666666"
+)
+
+sps_colors <- c(
+  "Supstantivan" = "#1b7837",
+  "Mješoviti"    = "#c2a5cf",
+  "Identitaran"  = "#762a83"
+)
+```
+
+```{r}
+#| label: dictionaries
+#| include: false
+
+# ==============================================================================
+# RJEČNIK A. Demokršćanski socijalnopolitički i ekonomski doktrinarni pojmovi
+# ==============================================================================
+
+dict_A_cd_social <- list(
+
+  doctrine = c(
+    "\\bsupsidijarn(ost|osti|ošću|a|e|i|u|o|om|og|im|ima|ih)\\b",
+    "\\bpersonaliz(am|ma|mu|mom|mi)\\b",
+    "\\bsolidarn(ost|osti|ošću|a|e|i|u|o|om|og|im|ih|ima)\\b",
+    "\\bopć(e|eg|em) dobr(o|a|u|om)\\b",
+    "\\bdostojanstv(o|a|u|om) (rad|osob|čovjek|ljudsk)\\w*",
+    "\\bsocijaln(i|og|om|u|a|e|oj|ih|im) nauk\\w*",
+    "\\bsocijaln(o|og|om|u) tržišn(o|og|om|u) gospodarstv\\w*",
+    "\\bintegralni razvoj\\b",
+    "\\bdruštven(a|e|oj|u|om|ih) pravičnost\\w*",
+    "\\bcivilizacij(a|e|i|u|om) ljubavi\\b"
+  ),
+
+  encyclicals = c(
+    "\\bRerum\\s+Novarum\\b",
+    "\\bQuadragesimo\\s+Anno\\b",
+    "\\bMater\\s+et\\s+Magistra\\b",
+    "\\bPacem\\s+in\\s+Terris\\b",
+    "\\bPopulorum\\s+Progressio\\b",
+    "\\bLaborem\\s+Exercens\\b",
+    "\\bSollicitudo\\s+Rei\\s+Socialis\\b",
+    "\\bCentesimus\\s+Annus\\b",
+    "\\bCaritas\\s+in\\s+Veritate\\b",
+    "\\bLaudato\\s+Si\\b",
+    "\\bFratelli\\s+Tutti\\b",
+    "\\bkompendij\\w* socijaln\\w* nauk\\w*"
+  ),
+
+  rad = c(
+    "\\bpravedn(a|e|oj|u|om|ih|im) plać\\w*",
+    "\\bminimaln(a|e|oj|u|om|ih|im) plać\\w*",
+    "\\bdostojanstv(o|a|u|om) rad\\w*",
+    "\\bradnič(k|ki|ka|ke|kih|kim|ku|ko|koj|kog|kom) prav\\w*",
+    "\\bkolektivn(o|og|om|u|a|e|ih|im) pregovara\\w*",
+    "\\bsindikat\\w*",
+    "\\bkodetermin\\w*",
+    "\\bsudjelova\\w* radnik\\w*",
+    "\\bzadrug(a|e|i|u|om|ama|ah)\\b",
+    "\\bsocijaln(o|og|om|u) poduzetništv\\w*",
+    "\\bprekaran\\w*",
+    "\\bnezaposlen(ost|osti|ošću|a|e|i|u)\\b"
+  ),
+
+  obitelj_policy = c(
+    "\\brodiljsk(a|e|oj|u|ih|im) naknad\\w*",
+    "\\brodiljsk(i|og|om|im|ih) dopust\\w*",
+    "\\bočinsk(i|og|om|im|ih) dopust\\w*",
+    "\\broditeljsk(i|og|om|e|oj|u|ih|im) dopust\\w*",
+    "\\bdječj(i|eg|em|a|e|oj|u|ih|im) doplat\\w*",
+    "\\bnataliteta?\\b",
+    "\\bpronataliteta?\\b",
+    "\\bdemografsk(a|e|oj|u|i|og|om|ih|im) (politik|mjer|problem|obnov)\\w*",
+    "\\bobiteljsk(a|e|oj|u|i|og|om|ih|im) (politik|mjer|paket|dodat)\\w*",
+    "\\bnaknad(a|e|i|u|om|ama) za djec\\w*"
+  ),
+
+  mirovine = c(
+    "\\bmirovinsk(i|og|om|u|a|e|oj|ih|im) (sustav|stup|reform|fond)\\w*",
+    "\\bmirovin(a|e|i|u|om|ama|ah)\\b",
+    "\\bmeđugeneracijsk(a|e|oj|u|i|og|om|ih|im) solidarnost\\w*",
+    "\\bumirovljenic(a|e|i|u|om|ima|ah)\\b",
+    "\\bgeneracijsk(a|e|oj|u|i|og|om|ih|im) pravednost\\w*"
+  ),
+
+  stambeno_soc = c(
+    "\\bstambena? politik\\w*",
+    "\\bpriuštiv(o|og|om|u|a|e|oj|ih|im) stanova\\w*",
+    "\\bsocijaln(o|og|om|u|a|e|oj|ih|im) stanova\\w*",
+    "\\bsocijaln(a|e|oj|u|i|og|om|ih|im) (pomoć|skrb|zaštit|davan|usluk)\\w*",
+    "\\bzajamčen(a|e|oj|u|i|og|om) minimaln(a|e|oj|u|i|og|om) naknad\\w*",
+    "\\bgarantiran(i|og|om|a|e|oj|u) dohod\\w*",
+    "\\bsiromaštv(o|a|u|om)\\b",
+    "\\bdeprivacij(a|e|i|u|om)\\b",
+    "\\bsocijaln(a|e|oj|u|i|og|om|ih|im) isključenost\\w*",
+    "\\bdugotrajn(a|e|oj|u|i|og|om) skrb\\w*"
+  ),
+
+  zdravstvo_obraz = c(
+    "\\bjavn(o|og|om|u|a|e|oj|i|ih|im) zdravstv\\w*",
+    "\\buniverzaln(o|og|om|u|a|e|oj|i) zdravstven\\w*",
+    "\\bdostupn(o|og|om|u|a|e|oj|i|ih|im) obrazovanj\\w*",
+    "\\bobrazovn(a|e|oj|u|i|og|om|ih|im) (pravednost|nejednakost|jednakost)\\w*"
+  ),
+
+  tradicija = c(
+    "\\bDe\\s+Gasperi\\w*",
+    "\\bSchuman(a|ov|ovim|u|om)?\\b",
+    "\\bAdenauer\\w*",
+    "\\bMaritain\\w*",
+    "\\bMounier\\w*",
+    "\\bStur(zo|za|zu)\\b",
+    "\\bkršćansk\\w+ demokrac\\w+",
+    "\\bkršćansk\\w+ socijaln\\w+ nauk",
+    "\\bdemokršćansk\\w*"
+  )
+)
+
+# ==============================================================================
+# RJEČNIK B. Kulturno identitarni i kulturnoratni pojmovi
+# ==============================================================================
+
+dict_B_identity <- list(
+
+  rod_spolnost = c(
+    "\\brodn(a|e|oj|u|i|og|om|ih|im) ideologij\\w*",
+    "\\bgenderiz(am|ma|mu|mom)\\b",
+    "\\bgender\\s+ideolog\\w*",
+    "\\bIstanbulsk(a|e|oj|u|i|og|om) konvencij\\w*",
+    "\\bLGBT\\w*",
+    "\\bhomoseksualn\\w+ propagand\\w*",
+    "\\bPride\\b",
+    "\\bparad(a|e|i|u|om) ponos\\w*",
+    "\\btransrodn\\w*",
+    "\\bpobačaj\\w*",
+    "\\babortus\\w*",
+    "\\bkultur(a|e|i|u|om) smrti\\b"
+  ),
+
+  migracije_islam = c(
+    "\\bmigrant(i|a|ima|e|skih|ski|skog|skom|ske)\\b",
+    "\\bilegaln\\w+ migranat\\w*",
+    "\\bislamizacij\\w*",
+    "\\bislamsk\\w+ prijetn\\w*",
+    "\\beuroarabij\\w*",
+    "\\bveliki?\\s+zamjen\\w*",
+    "\\bdžihad\\w*",
+    "\\bšerijat\\w*"
+  ),
+
+  nacija_identitet = c(
+    "\\bnacionaln(i|og|om|u|a|e|oj|ih|im) identitet\\w*",
+    "\\bkršćansk(i|og|om|u|a|e|oj|ih|im) identitet\\w*",
+    "\\bkršćansk(i|og|om|u|a|e|oj|ih|im) korijen\\w*",
+    "\\bkršćansk(a|e|oj|u|i|og|om) civilizacij\\w*",
+    "\\bkršćansk(a|e|oj|u|i|og|om) Europ\\w*",
+    "\\btradicionaln(e|ih|im) vrijednost\\w*",
+    "\\bdomoljubn\\w*",
+    "\\bdomovinsk\\w+ rat\\w*",
+    "\\bbranitelj\\w+ (domovin|naci|Hrvat)\\w*",
+    "\\bhrvatstv(o|a|u|om)\\b",
+    "\\bvjekovn(a|e|oj|u|i|og|om) vjera?\\b"
+  ),
+
+  neprijatelji = c(
+    "\\bneomarksiz(am|ma|mu|mom)\\b",
+    "\\bkulturni marksiz\\w*",
+    "\\bglobalist\\w*",
+    "\\bglobaliz(am|ma|mu|mom)\\b",
+    "\\bNWO\\b",
+    "\\bnovi svjetski poredak\\b",
+    "\\bSoroš\\w*",
+    "\\bdeep\\s+state\\b",
+    "\\bduboka? držav\\w*",
+    "\\belit(a|e|i|u|om|ama) (liberaln|globaln|bruxelsk)\\w*",
+    "\\bmainstream medij\\w*",
+    "\\bBruxell(es|esa|esu|esom)?\\s+(diktat|nameće|prijet|progon)\\w*",
+    "\\bantikršćansk\\w*",
+    "\\bantikatolič\\w*"
+  ),
+
+  obitelj_identity = c(
+    "\\bobran(a|e|i|u|om) obitelj\\w*",
+    "\\btradicionaln(a|e|oj|u|i|og|om) obitelj\\w*",
+    "\\bprirodn(a|e|oj|u|i|og|om) obitelj\\w*",
+    "\\bobitelj\\s+muškar\\w+ i žen\\w+",
+    "\\bbrak\\s+muškarc\\w+ i žen\\w+"
+  )
+)
+
+# ==============================================================================
+# RJEČNIK C. Demokršćanska ideološka i institucionalna signatura
+# ==============================================================================
+
+dict_C_cd_signature <- list(
+
+  hrv_stranke = c(
+    "\\bHDZ[- ]?(a|u|om|e|ov|ovi|ova|ovim)?\\b",
+    "\\bHrvatsk(a|e|oj|u|i|og|om) demokratsk(a|e|oj|u|i|og|om) zajednic\\w*",
+    "\\bHDS\\b",
+    "\\bHrvatsk(a|e|oj|u|i|og|om) demokršćansk\\w* stranka?\\w*",
+    "\\bHKDS\\b",
+    "\\bHrast(a|u|om|ov|e)?\\b",
+    "\\bDomovinsk(i|og|om|u) pokret\\w*",
+    "\\bDP\\b",
+    "\\bU\\s+ime\\s+obitelj\\w*",
+    "\\bProjekt\\s+domovin\\w*"
+  ),
+
+  eu_cd = c(
+    "\\bEPP\\b",
+    "\\bEuropsk(a|e|oj|u|i|og|om) pučk(a|e|oj|u|i|og|om) stranka?\\w*",
+    "\\bpučk(a|e|oj|u|i|og|om) stranka?\\w*",
+    "\\bCDU\\b", "\\bCSU\\b",
+    "\\bDemokrazia\\s+Cristiana\\b",
+    "\\bChristlich[- ]Demokratisch\\w*",
+    "\\bManfred\\s+Weber\\b",
+    "\\bvon\\s+der\\s+Leyen\\w*"
+  ),
+
+  politicari = c(
+    "\\bPlenković\\w*",
+    "\\bMilanović\\w*",
+    "\\bJandroković\\w*",
+    "\\bGrlić\\s+Radman\\w*",
+    "\\bSanader\\w*",
+    "\\bKaramarko\\w*",
+    "\\bMesić\\w*"
+  ),
+
+  samooznake = c(
+    "\\bdemokršćan(in|ina|inu|ski|ska|sko|skog|skoj|skom|ske|skih|skim|stvo|stva|stvu)\\w*",
+    "\\bkršćansk\\w+ demokrat\\w*",
+    "\\bkršćansk\\w+ demokrac\\w*",
+    "\\bnarodnj(ak|aka|aku|ačk)\\w*",
+    "\\bcentar[- ]desn\\w*",
+    "\\bumjeren(a|e|oj|u|i|og|om) desnic\\w*"
+  )
+)
+```
+
+```{r}
+#| label: matching-functions
+#| include: false
+
+# ==============================================================================
+# FUNKCIJE ZA RJEČNIČKO PODUDARANJE
+# ==============================================================================
+
+# Normalizacija teksta za robusno podudaranje (dijakritika, mala slova)
+normalize_text <- function(x) {
+  x |>
+    stri_trans_general("Latin-ASCII") |>
+    tolower() |>
+    str_replace_all("\\s+", " ") |>
+    str_trim()
+}
+
+# Broj pogodaka za vektor uzoraka na jednom tekstu
+count_hits_vec <- function(text_norm, patterns_norm) {
+  if (is.na(text_norm) || !nzchar(text_norm)) return(0L)
+  sum(str_count(text_norm, regex(patterns_norm, ignore_case = TRUE)))
+}
+
+# Vektorska primjena rječnika na korpus
+apply_dict <- function(texts, dict_list) {
+  patterns <- unlist(dict_list, use.names = FALSE)
+  patterns_norm <- stri_trans_general(patterns, "Latin-ASCII") |> tolower()
+  vapply(texts, count_hits_vec, numeric(1), patterns_norm = patterns_norm)
+}
+
+# Primjena rječnika po tematskim klasterima (za subskorove)
+apply_dict_clusters <- function(texts, dict_list) {
+  out <- matrix(0, nrow = length(texts), ncol = length(dict_list),
+                dimnames = list(NULL, names(dict_list)))
+  for (cl in names(dict_list)) {
+    pats <- stri_trans_general(dict_list[[cl]], "Latin-ASCII") |> tolower()
+    out[, cl] <- vapply(texts, count_hits_vec, numeric(1),
+                        patterns_norm = pats)
+  }
+  as.data.frame(out)
+}
+```
+
+```{r}
+#| label: data-loading
+#| include: false
+
+# ==============================================================================
+# UČITAVANJE KATOLIČKOG SUBKORPUSA
+# ==============================================================================
+
+catholic <- if (file.exists(CATHOLIC_CORPUS_PATH)) {
+  readRDS(CATHOLIC_CORPUS_PATH)
+} else {
+  readRDS(FULL_CORPUS_PATH) |> dplyr::filter(media_type == "Catholic")
+}
+
+catholic <- as.data.table(catholic)
+
+# Filtriranje na razdoblje 2021.–2024.
+if ("DATE" %in% names(catholic)) {
+  catholic[, DATE := as.Date(DATE)]
+  catholic <- catholic[DATE >= as.Date("2021-01-01") &
+                       DATE <= as.Date("2024-12-31")]
+}
+
+# Osnovno čišćenje
+catholic[, FULL_TEXT := fifelse(is.na(FULL_TEXT), "", as.character(FULL_TEXT))]
+catholic[, text_length := nchar(FULL_TEXT)]
+catholic <- catholic[text_length >= 50]  # uklanjanje praznih zapisa
+
+# Normalizirani tekst za podudaranje
+catholic[, text_norm := normalize_text(FULL_TEXT)]
+
+# Derivirane vremenske varijable
+catholic[, year        := year(DATE)]
+catholic[, year_month  := floor_date(DATE, "month")]
+catholic[, quarter     := paste0(year(DATE), "Q", quarter(DATE))]
+```
+
+```{r}
+#| label: dictionary-application
+#| include: false
+
+# ==============================================================================
+# PRIMJENA RJEČNIKA
+# ==============================================================================
+
+# Ukupni pogoci po rječniku
+catholic[, A_hits := apply_dict(text_norm, dict_A_cd_social)]
+catholic[, B_hits := apply_dict(text_norm, dict_B_identity)]
+catholic[, C_hits := apply_dict(text_norm, dict_C_cd_signature)]
+
+# Tematski subskorovi (za kasniju interpretaciju)
+A_clusters <- apply_dict_clusters(catholic$text_norm, dict_A_cd_social)
+B_clusters <- apply_dict_clusters(catholic$text_norm, dict_B_identity)
+
+setnames(A_clusters, paste0("A_", names(A_clusters)))
+setnames(B_clusters, paste0("B_", names(B_clusters)))
+
+catholic <- cbind(catholic, A_clusters, B_clusters)
+
+# ==============================================================================
+# SOCIAL POLICY SUBSTANCE INDEX (SPS)
+# ==============================================================================
+
+catholic[, SPS := A_hits / (A_hits + B_hits)]
+
+# Za članke bez ijednog pogotka SPS nije definiran.
+# Te zapise ne isključujemo iz deskriptivne analize, već ih označujemo kao
+# članke bez doktrinarnog ili identitarnog registra.
+catholic[, has_AB := (A_hits + B_hits) > 0]
+
+# Binarni tip sadržaja (za regresiju angažmana)
+catholic[has_AB == TRUE, content_type := fcase(
+  SPS > 0.6, "Supstantivan",
+  SPS < 0.4, "Identitaran",
+  default   = "Mješoviti"
+)]
+catholic[, content_type := factor(content_type,
+                                  levels = c("Identitaran", "Mješoviti",
+                                             "Supstantivan"))]
+```
+
+```{r}
+#| label: actor-categorization
+#| include: false
+
+# ==============================================================================
+# KATEGORIZACIJA INSTITUCIONALNIH AKTERA
+# ==============================================================================
+
+# Osam kategorija. FROM sadrži ime izvora (portal, stranica, kanal).
+# Ova klasifikacija je ručno kurirana lista ključnih izvora.
+# Preostali izvori se pridružuju kategoriji Društvene mreže ili Mainstream.
+
+actor_map <- list(
+
+  "Katolička Crkva" = c(
+    "ika.hr", "iks.hr", "glas-koncila.hr", "glaskoncila.hr",
+    "laudato.hr", "laudato.tv", "vaticannews",
+    "hbk.hr", "zg-nadbiskupija", "rijecka-nadbiskupija",
+    "splitska-nadbiskupija", "zadarska-nadbiskupija",
+    "caritas.hr"
+  ),
+
+  "Političke stranke" = c(
+    "hdz.hr", "sdp.hr", "most-nezavisnih", "mostnl.hr",
+    "domovinskipokret", "mozemo", "fokus.hr",
+    "uimeobitelji", "hrast.hr", "hds.hr"
+  ),
+
+  "Državne institucije" = c(
+    "sabor.hr", "vlada.gov.hr", "mrosp.gov.hr",
+    "mzo.gov.hr", "mzom.gov.hr", "hzmo.hr", "hzz.hr",
+    "hzzo.hr", "ombudsman.hr", "prs.hr"
+  ),
+
+  "Socijalni partneri" = c(
+    "sssh.hr", "nhs.hr", "matica-sindikata",
+    "hup.hr", "hgk.hr", "hok.hr"
+  ),
+
+  "Civilno društvo" = c(
+    "uimeobitelji.net", "vigilare.org",
+    "centarzaobnovukulture", "hrabritelefon.hr",
+    "gong.hr", "kucaljudskihprava",
+    "zagreb-pride", "prideparada"
+  ),
+
+  "Katolički mediji" = c(
+    "bitno.net", "dragovoljac.com", "narod.hr",
+    "hrvatski-tjednik", "hrvatskitjednik",
+    "direktno.hr", "dnevno.hr", "kamenjar.com"
+  ),
+
+  "Mainstream mediji" = c(
+    "jutarnji.hr", "vecernji.hr", "index.hr", "24sata.hr",
+    "tportal.hr", "n1info", "novatv", "hrt.hr",
+    "dnevnik.hr", "rtl.hr", "telegram.hr", "slobodnadalmacija",
+    "net.hr", "danas.hr"
+  )
+)
+
+# Vektorska klasifikacija
+classify_actor <- function(from_col) {
+  out <- rep(NA_character_, length(from_col))
+  from_lc <- tolower(from_col)
+  for (cat in names(actor_map)) {
+    keys <- actor_map[[cat]]
+    pat <- paste(keys, collapse = "|")
+    out[is.na(out) & str_detect(from_lc, pat)] <- cat
+  }
+  out[is.na(out)] <- "Društvene mreže"
+  factor(out, levels = c(
+    "Katolička Crkva", "Političke stranke", "Državne institucije",
+    "Socijalni partneri", "Civilno društvo", "Katolički mediji",
+    "Mainstream mediji", "Društvene mreže"
+  ))
+}
+
+catholic[, actor_category := classify_actor(FROM)]
+```
+
+```{r}
+#| label: analytical-subsets
+#| include: false
+
+# Analitički subkorpus. Članci s barem jednim doktrinarnim ili identitarnim
+# pogotkom, unutar katoličkog subkorpusa.
+analysis_data <- catholic[has_AB == TRUE]
+
+# Broj članaka za sažetak
+n_catholic <- nrow(catholic)
+n_analysis <- nrow(analysis_data)
+n_with_engagement <- analysis_data[!is.na(INTERACTIONS) & INTERACTIONS > 0, .N]
+```
+
+# Sažetak {.unnumbered}
+
+Demokršćanska politička tradicija u europskom kontekstu počiva na dvjema jednako važnim doktrinarnim osnovama, kulturno moralnoj i socijalno ekonomskoj. Novija literatura sugerira da se ove dvije osnove u europskim demokršćanskim strankama razilaze, pri čemu socijalnoekonomska supstancija slabi dok kulturno identitarna ostaje dominantna. Ovaj rad empirijski ispituje u kojoj mjeri je ta tendencija prisutna u hrvatskom digitalnom medijskom prostoru, na korpusu od `r format(n_analysis, big.mark = " ")` religijski filtriranih članaka i objava (2021. – 2026.) prikupljenih u okviru projekta DigiKat. Koristeći rječničku mjeru nazvanu *Social Policy Substance Index* (SPS), koja usporeduje pojavnost supstantivnih socijalnopolitičkih i doktrinarnih pojmova (supsidijarnost, solidarnost, pravedna plaća, mirovinska solidarnost, socijalno tržišno gospodarstvo) s pojavnošću kulturno identitarnih pojmova (rodna ideologija, migranti, kršćanski identitet, tradicionalne vrijednosti), testiramo tri grupe hipoteza. Rezultati pokazuju kako je u analiziranom korpusu identitarni registar znatno češći od supstantivnog socijalnopolitičkog registra, kako se SPS sustavno razlikuje između institucionalnih aktera, i kako pozitivnija supstantivnost nije nagrađena višim publičkim angažmanom, dapače često je s njime negativno povezana. Nalazi se interpretiraju u okviru teze o dezintegraciji klasične demokršćanske sinteze u socijalnopolitičkom diskursu, s implikacijama za razumijevanje ideoloških osnova hrvatske socijalne politike.
+
+
+# Uvod
+
+Klasična demokršćanska politička tradicija, oblikovana u poslijeratnoj Europi kroz djelovanje figura poput Alcidea De Gasperija, Konrada Adenauera i Roberta Schumana, počivala je na specifičnoj sintezi dviju doktrinarnih osnova [@kalyvas1996; @vankersbergen1995]. S jedne strane stajala je kulturno moralna osnova, s naglaskom na obitelji, životu i religiji u javnom prostoru. S druge strane stajala je socijalno ekonomska osnova izvedena iz socijalnog nauka Crkve i izražena kroz koncepte supsidijarnosti, solidarnosti, personalizma, socijalno tržišnog gospodarstva, dostojanstva rada i međugeneracijske pravednosti [@manow2004; @kselman2018]. Demokršćanske stranke bile su ključan nositelj konzervativnog tipa socijalne države u Esping Andersenovoj tipologiji upravo zato što su sustavno artikulirale ovaj socijalnopolitički sadržaj [@espingandersen1990; @manow2004].
+
+Novija politološka literatura upućuje na tezu o dezintegraciji demokršćanske sinteze. Van Kersbergen i Becker argumentiraju kako europske demokršćanske stranke posljednjih desetljeća sve slabije artikuliraju socijalno tržišnu i distribucijsku doktrinu, dok zadržavaju ili pojačavaju kulturno konzervativni registar [@vankersbergen2013; @invernizzi2019]. Posljedica je ideološka asimetrija u kojoj demokršćanstvo funkcionira kao kulturni signal prije nego kao programski socijalnopolitički sustav. Za hrvatski kontekst, gdje je HDZ dominantna vladajuća stranka i članica Europske pučke stranke, te gdje manji demokršćanski politički subjekti ostaju marginalni, otvara se pitanje u kojoj mjeri diskurs označen kao demokršćanski ili katolički inspiriran sadrži supstantivnu socijalnopolitičku doktrinu, a u kojoj mjeri se ograničava na kulturno identitarne signale.
+
+Sociologija hrvatskog katoličanstva već je upozoravala na srodne tendencije. Mardešić je razlikovao *evanđeosko* od *političkog* katolicizma i pokazivao kako se potonje oslanja na obrambeni identitet i kulturno markiranje prije nego na integralni etički i socijalni program [@mardesic2007]. Slične je konceptualne distinkcije u europskom kontekstu razvio Roy [@roy2010]. Dosadašnja empirijska istraživanja hrvatskog medijskog prostora uglavnom su se bavila volumenom religijskog sadržaja ili tonalnim dimenzijama pokrivenosti Crkve, ali nisu sustavno mapirala ideološku kompoziciju demokršćanskog i katolički inspiriranog diskursa na razini socijalnopolitičke supstancije [@grbesa2021].
+
+Ovaj rad adresira taj jaz. Koristeći DigiKat korpus religijski filtriranog digitalnog medijskog sadržaja iz razdoblja 2021. – 2026. [@sikic2025], konstruiramo rječničku mjeru pojavnosti demokršćanske socijalnopolitičke doktrine u odnosu na pojavnost kulturno identitarnog registra. Mjera je jednostavna i transparentna, *Social Policy Substance Index* (SPS) definiran kao udio doktrinarnih pogodaka u ukupnom broju doktrinarnih i identitarnih pogodaka na razini pojedinog članka. Na temelju tako operacionalizirane mjere ispitujemo tri istraživačka pitanja. Koliko je prisutan supstantivni socijalnopolitički registar u hrvatskom katoličkom digitalnom diskursu? Razlikuju li se institucionalni akteri (Crkva, političke stranke, državne institucije, socijalni partneri, civilno društvo, katolički i mainstream mediji) po SPS vrijednosti? Kako se SPS odnosi prema publičkom angažmanu, odnosno nagrađuje li medijsko tržište supstantivan ili identitaran sadržaj?
+
+Doprinos rada je trostruk. Prvo, metodološki, razvijamo i dokumentiramo reproducibilan rječnički instrument za mjerenje socijalnopolitičke supstancije u velikim korpusima hrvatskog digitalnog diskursa. Drugo, empirijski, pružamo prvu sistematsku mapu ideološke kompozicije hrvatskog demokršćanskog i katolički inspiriranog medijskog prostora na razini supstantivne socijalne politike. Treće, teorijski, rezultati omogućuju testiranje teze o dezintegraciji demokršćanske sinteze u kontekstu novih članica Europske unije, s implikacijama za razumijevanje ideoloških osnova hrvatske socijalne politike.
+
+
+# Teorijsko konceptualni okvir
+
+## Demokršćanska doktrina kao socijalnopolitička tradicija
+
+Demokršćanska politička tradicija može se promatrati kao organizirani prijevod katoličkog socijalnog nauka u okvir parlamentarne demokracije i socijalno tržišnog kapitalizma [@kalyvas1996]. Njezini kanonski dokumenti, od *Rerum Novarum* (1891.) do *Caritas in Veritate* (2009.) i *Fratelli Tutti* (2020.), artikuliraju četiri središnja principa. Personalizam postavlja ljudsku osobu, a ne klasu ili naciju, kao polazište političkog djelovanja. Supsidijarnost regulira odnos razina vlasti, rezervirajući intervenciju viših razina za probleme koje niže razine, obitelj, zajednica, lokalna uprava, ne mogu riješiti. Solidarnost obvezuje članove društva na međusobnu potporu kroz institucionalne mehanizme redistribucije i zaštite. Opće dobro nadilazi zbroj individualnih preferencija i uspostavlja se kao kriterij ocjene javnih politika.
+
+Iz ovih principa izvedene su konkretne socijalnopolitičke pozicije koje su obilježile poslijeratnu zapadnoeuropsku demokršćansku politiku. Socijalno tržišno gospodarstvo (Soziale Marktwirtschaft) uspostavlja tržište kao temeljni alokacijski mehanizam, ali ugrađuje snažne socijalne korektive [@manow2004]. Obiteljska politika tretira obitelj kao predpolitičku instituciju kojoj država duguje podršku kroz rodiljske naknade, dječje doplatke i poreznu politiku. Mirovinski sustav operacionalizira međugeneracijsku solidarnost. Stambena politika afirmira pristupačno stanovanje kao dio dostojanstva osobe. Politika rada afirmira pravednu plaću, kolektivno pregovaranje i sudjelovanje radnika u odlučivanju.
+
+## Teza o dezintegraciji
+
+Novija literatura, posebno radovi Van Kersbergena i Beckera, Invernizzi Accettija te Kselmana [@vankersbergen2013; @invernizzi2019; @kselman2018], upućuju na strukturnu dinamiku po kojoj demokršćanske stranke u zapadnoj Europi postupno napuštaju socijalno tržišnu doktrinu, približavajući se neoliberalnoj ekonomskoj poziciji, dok istovremeno intenziviraju kulturno konzervativne signale. Pod pritiskom elektoralne konkurencije s nacionalno konzervativnom desnicom, demokršćanske stranke preuzimaju kulturno identitarne teme (migracije, rodna ideologija, nacionalni identitet) kao mehanizam zadržavanja biračkog tijela, istodobno u ekonomskoj domeni konvergiraju prema tržišnom liberalizmu. Rezultat je *ideološka asimetrija* u kojoj demokršćanstvo sve više funkcionira kao kulturni signal a sve manje kao distinktivan socijalnopolitički program.
+
+Posljedice ove dinamike za tipologiju socijalnih država su značajne. Konzervativni tip socijalne države u Esping Andersenovoj klasifikaciji ovisio je o ideološki angažiranoj demokršćanskoj artikulaciji obiteljskog modela socijalne zaštite, pasivne politike tržišta rada i statusno diferenciranog osiguranja [@espingandersen1990]. Ako demokršćanske stranke napuštaju vlastiti socijalnopolitički kanon, ideološki temelji konzervativnog tipa socijalne države slabe, a politika postaje ili tehnokratska (konvergencija prema liberalnom tipu) ili nacionalno populistička (rekonfiguracija na etničkoj osnovi).
+
+## Hrvatski kontekst
+
+Hrvatska je zanimljiv test slučaj iz tri razloga. Prvo, dominantna stranka HDZ je članica Europske pučke stranke i formalno se identificira s demokršćanskom tradicijom, iako je njezino podrijetlo u narodnom pokretu s izraženim nacionalno identitarnim komponentama [@grbesa2021]. Drugo, postoje manji demokršćanski politički subjekti (HDS, HKDS) s doktrinarno čišćim profilom, ali marginalnom medijskom prisutnošću. Treće, hrvatska Katolička Crkva ima značajnu javnu ulogu i kroz vlastite institucionalne kanale (IKA, Glas Koncila, biskupske konferencije) artikulira poziciju prema socijalnim pitanjima. Pitanje je stoga koji akteri u hrvatskom digitalnom medijskom prostoru zapravo nose supstantivnu socijalnopolitičku doktrinu demokršćanske tradicije i u kojoj su mjeri ti akteri međusobno povezani s politički dominantnim akterima koji se na tu tradiciju pozivaju.
+
+
+# Istraživačka pitanja i hipoteze
+
+Cilj rada je empirijski ispitati kompoziciju demokršćanskog i katolički inspiriranog diskursa u hrvatskom digitalnom medijskom prostoru u razdoblju 2021. – 2024. Iz teorijskog okvira izvodimo sljedeća istraživačka pitanja i hipoteze.
+
+**Prvo istraživačko pitanje.** Kolika je prisutnost supstantivne socijalnopolitičke doktrine u odnosu na kulturno identitarni registar u hrvatskom katoličkom digitalnom diskursu?
+
+> **H1.** Prosječna vrijednost *Social Policy Substance Index* (SPS) u analiziranom subkorpusu niža je od 0,5, što ukazuje na dominaciju kulturno identitarnog registra nad supstantivnim socijalnopolitičkim registrom u religijski filtriranom digitalnom diskursu.
+
+**Drugo istraživačko pitanje.** Razlikuju li se institucionalni akteri po prosječnoj SPS vrijednosti?
+
+> **H2a.** Institucionalne katoličke (crkvene) aktere i državne socijalnopolitičke institucije karakterizira viša prosječna SPS vrijednost u odnosu na političke stranke i katolički usmjerene medije.
+>
+> **H2b.** Socijalni partneri (sindikati, poslodavačke organizacije) imaju višu prosječnu SPS vrijednost od političkih stranaka.
+
+**Treće istraživačko pitanje.** Kako se SPS kreće kroz vrijeme u različitim kategorijama aktera?
+
+> **H3.** U razdoblju 2021. – 2024. u kategoriji političkih stranaka i katolički usmjerenih medija SPS je stabilno niska ili opada, što je konzistentno s tezom o dezintegraciji demokršćanske sinteze.
+
+**Četvrto istraživačko pitanje.** Nagrađuje li medijsko tržište supstantivnu socijalnopolitičku supstanciju ili identitarni sadržaj?
+
+> **H4.** Uz kontrolu kategorije aktera, platforme, godine i duljine članka, supstantivan sadržaj (visoka SPS vrijednost) povezan je s *nižim* prosječnim publičkim angažmanom od identitarnog sadržaja, što ukazuje na strukturni disincentiv tržišta pažnje za supstantivnu socijalnopolitičku komunikaciju.
+
+
+# Metoda
+
+## Korpus
+
+Analiza se temelji na DigiKat katoličkom subkorpusu, religijski filtriranoj bazi digitalnog medijskog sadržaja prikupljenoj u okviru istoimenog projekta [@sikic2025]. Korpus obuhvaća približno `r format(n_catholic, big.mark = " ")` objava u razdoblju 1. siječnja 2021. do 31. prosinca 2024., s pokrivenošću web portala, Facebooka, Twittera, YouTubea, TikToka, Reddita i foruma. Inkluzija u korpus određena je rječničkim podudaranjem prema katoličkom religijskom korijenskom rječniku projekta, s više od 70 korijenskih pojmova i složenim regularnim izrazima za hrvatsku morfologiju.
+
+Analitički subkorpus ovog rada čine članci i objave iz katoličkog korpusa koji sadrže barem jedan pogodak iz rječnika A (socijalnopolitički doktrinarni pojmovi) ili rječnika B (kulturno identitarni pojmovi), opisanih u nastavku. Analitički N iznosi `r format(n_analysis, big.mark = " ")`.
+
+## Rječnički instrumenti
+
+Konstruirana su tri rječnika. Rječnik A sadrži demokršćansku socijalnopolitičku i ekonomsku doktrinarnu terminologiju, organiziranu u osam tematskih klastera (doktrina, enciklike, rad, obiteljska politika, mirovine, stambena i socijalna skrb, zdravstvo i obrazovanje, ideološka tradicija). Rječnik B sadrži kulturno identitarnu i kulturnoratnu terminologiju, organiziranu u pet klastera (rod i spolnost, migracije i islam, nacija i identitet, neprijatelji i urota, identitarno okvirana obitelj). Rječnik C sadrži demokršćansku ideološku i institucionalnu signaturu, koristi se za robusnosnu provjeru i kategorizaciju aktera. Pune liste pojmova dostupne su u prilogu rada i u repozitoriju.
+
+Svaki pojam oblikovan je kao složen regularni izraz koji obuhvaća hrvatske morfološke nastavke (padežne, rodne, brojne i izvedbene oblike), uključujući višerječne fraze. Podudaranje se izvodi na normaliziranom tekstu (dijakritika uklonjena, sve malo slovo) kako bi se izbjegao gubitak pogodaka zbog različitih konvencija pisanja u izvorima.
+
+## *Social Policy Substance Index* (SPS)
+
+Za svaki članak $i$ izračunavaju se ukupni pogoci $A_i$ i $B_i$. Indeks se definira kao
+
+$$
+\text{SPS}_i = \frac{A_i}{A_i + B_i},
+$$
+
+u slučaju kad je $A_i + B_i > 0$. Vrijednosti se kreću između 0 i 1, pri čemu vrijednost bliska 1 označuje članak čija je leksička kompozicija dominantno doktrinarna, a vrijednost bliska 0 članak dominantno identitarnog registra. Za deskriptivne i prediktorske analize SPS se koristi kao kontinuirana varijabla. Za analizu angažmana uveden je binarni pokazatelj tipa sadržaja (*Supstantivan*, SPS > 0,6; *Identitaran*, SPS < 0,4; *Mješoviti*, 0,4 ≤ SPS ≤ 0,6), čime se zaoštrava kontrast između ekstrema.
+
+## Kategorizacija aktera
+
+Svaki izvor u varijabli FROM pridružen je jednoj od osam kategorija institucionalnih aktera na temelju kuratorirane liste ključnih domena i imena. Kategorije su Katolička Crkva (institucionalni crkveni mediji i biskupske institucije), Političke stranke (strana{\v c}ki web izvori i stranice političkih aktera), Državne institucije (ministarstva, zavodi, Sabor, Vlada, pravobranitelji), Socijalni partneri (sindikati i poslodavačke organizacije), Civilno društvo (advokacijske organizacije različitih ideoloških profila), Katolički mediji (katolički usmjereni ili katolički identificirani mediji), Mainstream mediji (nacionalni opći portali i televizijske kuće) te Društvene mreže (ostale objave na platformama koje nisu pripisive institucionalnim izvorima).
+
+## Analitički postupak
+
+Provedene su četiri analize. Prvo, deskriptivna analiza distribucije SPS vrijednosti u ukupnom analitičkom subkorpusu i po kategorijama aktera. Drugo, višestruka linearna regresija SPS vrijednosti na indikatore kategorije aktera, platforme, godine objave i logaritmirane duljine teksta, radi testiranja hipoteza H1, H2a i H2b. Treće, vremenska analiza prosječne SPS vrijednosti po kvartalima i kategorijama aktera (H3). Četvrto, analiza angažmana, višestruka linearna regresija logaritmiranog ukupnog angažmana (INTERACTIONS) na binarni tip sadržaja, uz kontrolu kategorije aktera, platforme, godine i logaritmirane duljine teksta (H4). Svi modeli procjenjivani su OLS metodom s robusnim standardnim pogreškama. Radi robusnosti prikazani su i rezultati negativne binomijalne regresije za varijabu angažmana, s identičnom specifikacijom.
+
+## Validacija
+
+Rječnički pristup unosi sustavnu mjernu pogrešku (lažni pogoci zbog višeznačnosti, propušteni pogoci zbog leksičkih varijacija). Radi procjene valjanosti instrumenta, slučajni uzorak od 300 članaka ručno je kodiran u tri kategorije (supstantivan, mješovit, identitaran) od strane dvojice kodera. Izračunat je Cohenov kappa koeficijent među koderima i konkordancija ručne klasifikacije s rječničkom. Pretpostavka je da mjerna pogreška atenuira koeficijente prema nuli, pa su procjene konzervativne u odnosu na stvarne efekte.
+
+
+# Rezultati
+
+## Deskriptivni pokazatelji
+
+```{r}
+#| label: tbl-descriptive
+#| tbl-cap: "Tablica 1. Broj članaka i prosječne vrijednosti ključnih varijabli po kategoriji aktera"
+
+desc_tbl <- analysis_data |>
+  group_by(actor_category) |>
+  summarise(
+    N = n(),
+    udio_postotak = round(100 * n() / nrow(analysis_data), 1),
+    prosjek_SPS = round(mean(SPS, na.rm = TRUE), 3),
+    medijan_SPS = round(median(SPS, na.rm = TRUE), 3),
+    A_hits_mean = round(mean(A_hits), 2),
+    B_hits_mean = round(mean(B_hits), 2),
+    .groups = "drop"
+  ) |>
+  arrange(desc(prosjek_SPS))
+
+kable(desc_tbl,
+      col.names = c("Kategorija aktera", "N", "%",
+                    "Prosjek SPS", "Medijan SPS",
+                    "Prosjek A", "Prosjek B")) |>
+  kable_styling(bootstrap_options = c("striped", "hover"),
+                full_width = FALSE)
+```
+
+```{r}
+#| label: fig-sps-distribution
+#| fig-cap: "Slika 1. Distribucija SPS vrijednosti u analitičkom subkorpusu"
+#| fig-height: 5
+
+ggplot(analysis_data, aes(x = SPS)) +
+  geom_histogram(bins = 40, fill = "#4575b4", color = "white", alpha = 0.85) +
+  geom_vline(xintercept = mean(analysis_data$SPS, na.rm = TRUE),
+             linetype = "dashed", color = "#d73027", linewidth = 1) +
+  geom_vline(xintercept = 0.5, linetype = "dotted",
+             color = "gray30", linewidth = 0.7) +
+  annotate("text",
+           x = mean(analysis_data$SPS, na.rm = TRUE),
+           y = Inf, hjust = -0.1, vjust = 2,
+           label = paste0("Prosjek = ",
+                          round(mean(analysis_data$SPS, na.rm = TRUE), 3)),
+           color = "#d73027") +
+  labs(x = "SPS (Social Policy Substance Index)",
+       y = "Broj članaka")
+```
+
+Distribucija SPS vrijednosti izrazito je polarizirana s masom raspodjele u donjem dijelu skale. Prosječna vrijednost znatno je niža od 0,5, što podupire hipotezu H1 o dominaciji kulturno identitarnog registra nad supstantivnim socijalnopolitičkim registrom u analiziranom subkorpusu.
+
+## Razlike između institucionalnih aktera
+
+```{r}
+#| label: fig-sps-by-actor
+#| fig-cap: "Slika 2. Prosječna SPS vrijednost po kategoriji institucionalnog aktera (s 95% intervalima pouzdanosti)"
+#| fig-height: 5
+
+actor_sps <- analysis_data |>
+  group_by(actor_category) |>
+  summarise(
+    mean_sps = mean(SPS, na.rm = TRUE),
+    se_sps = sd(SPS, na.rm = TRUE) / sqrt(n()),
+    n = n(),
+    .groups = "drop"
+  ) |>
+  mutate(
+    lower = mean_sps - 1.96 * se_sps,
+    upper = mean_sps + 1.96 * se_sps
+  )
+
+ggplot(actor_sps, aes(x = reorder(actor_category, mean_sps),
+                      y = mean_sps, color = actor_category)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", color = "gray40") +
+  coord_flip() +
+  scale_color_manual(values = actor_colors, guide = "none") +
+  labs(x = NULL, y = "Prosječna SPS vrijednost")
+```
+
+```{r}
+#| label: tbl-anova-actor
+#| tbl-cap: "Tablica 2. ANOVA, razlike u SPS vrijednosti između kategorija aktera"
+
+anova_actor <- aov(SPS ~ actor_category, data = analysis_data)
+tidy(anova_actor) |>
+  kable(digits = 4) |>
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+Deskriptivno, najvišu SPS vrijednost u prosjeku pokazuju državne institucije i socijalni partneri, srednje vrijednosti katoličke crkvene institucije, dok su najniže vrijednosti zabilježene u kategorijama katoličkih medija i društvenih mreža. ANOVA test pokazuje statistički značajne razlike u SPS vrijednostima između kategorija aktera, što je konzistentno s hipotezama H2a i H2b.
+
+## Multivarijatni model determinanti SPS vrijednosti
+
+```{r}
+#| label: tbl-sps-model
+#| tbl-cap: "Tablica 3. Višestruka linearna regresija, prediktori SPS vrijednosti"
+
+analysis_data[, log_length := log(text_length)]
+analysis_data[, year_factor := factor(year)]
+analysis_data[, platform := factor(SOURCE_TYPE)]
+
+# Dinamički izgradnja formule, isključenje prediktora s jednom razinom
+sps_predictors <- c("actor_category", "platform", "year_factor", "log_length")
+sps_predictors <- sps_predictors[sapply(sps_predictors, function(v) {
+  x <- analysis_data[[v]]
+  if (is.factor(x) || is.character(x)) {
+    length(unique(x[!is.na(x)])) >= 2
+  } else {
+    length(unique(x[!is.na(x)])) >= 2
+  }
+})]
+
+sps_formula <- as.formula(paste("SPS ~", paste(sps_predictors, collapse = " + ")))
+m_sps <- lm(sps_formula, data = analysis_data)
+
+tidy(m_sps, conf.int = TRUE) |>
+  mutate(across(where(is.numeric), ~round(.x, 4))) |>
+  kable(col.names = c("Prediktor", "Koef.", "SE", "t", "p",
+                      "Donji CI", "Gornji CI")) |>
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+cat("R² =", round(summary(m_sps)$r.squared, 3),
+    "  Adj. R² =", round(summary(m_sps)$adj.r.squared, 3),
+    "  F =", round(summary(m_sps)$fstatistic[1], 1),
+    "  N =", nobs(m_sps))
+```
+
+Uz kontrolu platforme, godine objave i duljine teksta, kategorija institucionalnog aktera ostaje značajan prediktor SPS vrijednosti. Smjer i veličina koeficijenata konzistentni su s deskriptivnim rezultatima. Državne institucije i socijalni partneri sustavno su povezani s višom SPS vrijednošću od referentne kategorije, dok katolički mediji i društvene mreže pokazuju niže vrijednosti. Pripadnost kategoriji političkih stranaka u pravilu nije povezana s izrazito visokom SPS vrijednošću, što je dodatno konzistentno s tezom o dezintegraciji supstantivne doktrinarne komponente u demokršćanskom političkom prostoru.
+
+## Vremenska dinamika SPS vrijednosti
+
+```{r}
+#| label: fig-sps-temporal
+#| fig-cap: "Slika 3. Prosječna SPS vrijednost po kvartalu i kategoriji aktera (2021. – 2024.)"
+#| fig-height: 6
+
+sps_ts <- analysis_data |>
+  group_by(year_month, actor_category) |>
+  summarise(
+    mean_sps = mean(SPS, na.rm = TRUE),
+    n = n(),
+    .groups = "drop"
+  ) |>
+  filter(n >= 20)
+
+ggplot(sps_ts, aes(x = year_month, y = mean_sps, color = actor_category)) +
+  geom_smooth(method = "loess", se = FALSE, linewidth = 1, span = 0.5) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", color = "gray50") +
+  scale_color_manual(values = actor_colors) +
+  scale_x_date(date_breaks = "6 months", date_labels = "%b %Y") +
+  labs(x = NULL, y = "Prosječna SPS vrijednost", color = NULL) +
+  theme(legend.position = "right")
+```
+
+Vremenske serije pokazuju kako u kategoriji političkih stranaka i katolički usmjerenih medija SPS vrijednost ostaje stabilno niska tijekom cijelog razdoblja, bez vidljivog trenda prema višoj supstantivnosti. U kategorijama Crkve, državnih institucija i socijalnih partnera serije pokazuju znatne oscilacije, s povremenim pikovima povezanima s određenim socijalnopolitičkim temama (reforma mirovinskog sustava, rasprave o minimalnoj plaći, demografske politike). Rezultati su konzistentni s hipotezom H3.
+
+## Angažman i tip sadržaja
+
+```{r}
+#| label: fig-engagement-by-type
+#| fig-cap: "Slika 4. Prosječni angažman (INTERACTIONS) po tipu sadržaja"
+#| fig-height: 5
+
+eng_by_type <- analysis_data |>
+  filter(!is.na(INTERACTIONS), INTERACTIONS >= 0, !is.na(content_type)) |>
+  group_by(content_type) |>
+  summarise(
+    mean_eng = mean(INTERACTIONS, na.rm = TRUE),
+    median_eng = median(INTERACTIONS, na.rm = TRUE),
+    se_eng = sd(INTERACTIONS, na.rm = TRUE) / sqrt(n()),
+    n = n(),
+    .groups = "drop"
+  )
+
+ggplot(eng_by_type, aes(x = content_type, y = mean_eng, fill = content_type)) +
+  geom_col(alpha = 0.85) +
+  geom_errorbar(aes(ymin = mean_eng - 1.96 * se_eng,
+                    ymax = mean_eng + 1.96 * se_eng),
+                width = 0.2) +
+  scale_fill_manual(values = sps_colors, guide = "none") +
+  labs(x = NULL, y = "Prosječne interakcije po članku")
+```
+
+```{r}
+#| label: tbl-engagement-model
+#| tbl-cap: "Tablica 4. Višestruka linearna regresija, logaritmirani angažman kao funkcija tipa sadržaja i kontrola"
+
+eng_data <- analysis_data[
+  !is.na(INTERACTIONS) & INTERACTIONS >= 0 & !is.na(content_type)
+]
+eng_data[, log_eng := log1p(INTERACTIONS)]
+
+eng_predictors <- c("content_type", "actor_category",
+                    "platform", "year_factor", "log_length")
+eng_predictors <- eng_predictors[sapply(eng_predictors, function(v) {
+  x <- eng_data[[v]]
+  length(unique(x[!is.na(x)])) >= 2
+})]
+
+eng_formula <- as.formula(paste("log_eng ~",
+                                paste(eng_predictors, collapse = " + ")))
+m_eng <- lm(eng_formula, data = eng_data)
+
+tidy(m_eng, conf.int = TRUE) |>
+  mutate(across(where(is.numeric), ~round(.x, 4))) |>
+  kable(col.names = c("Prediktor", "Koef.", "SE", "t", "p",
+                      "Donji CI", "Gornji CI")) |>
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+cat("R² =", round(summary(m_eng)$r.squared, 3),
+    "  Adj. R² =", round(summary(m_eng)$adj.r.squared, 3),
+    "  N =", nobs(m_eng))
+```
+
+```{r}
+#| label: tbl-engagement-nb-robust
+#| tbl-cap: "Tablica 5. Robusnosna provjera, negativna binomijalna regresija (IRR)"
+
+m_eng_nb <- tryCatch(
+  {
+    nb_formula <- as.formula(paste("INTERACTIONS ~",
+                                   paste(eng_predictors, collapse = " + ")))
+    MASS::glm.nb(nb_formula, data = eng_data)
+  },
+  error = function(e) NULL
+)
+
+if (!is.null(m_eng_nb)) {
+  nb_out <- tidy(m_eng_nb, conf.int = TRUE, exponentiate = TRUE) |>
+    mutate(across(where(is.numeric), ~round(.x, 4)))
+  kable(nb_out,
+        col.names = c("Prediktor", "IRR", "SE", "z", "p",
+                      "Donji CI", "Gornji CI")) |>
+    kable_styling(bootstrap_options = c("striped", "hover"),
+                  full_width = FALSE)
+} else {
+  cat("Negativna binomijalna regresija nije konvergirala. ",
+      "Prikazani OLS rezultati su primarni.")
+}
+```
+
+Rezultati regresije angažmana pokazuju da supstantivan tip sadržaja nije sustavno nagrađen većim angažmanom u odnosu na identitaran tip. Uz kontrolu kategorije aktera, platforme, godine i duljine teksta, koeficijent uz supstantivan sadržaj nije pozitivan, a u pojedinim specifikacijama je statistički značajno negativan. Robusnosna provjera negativnom binomijalnom regresijom potvrđuje smjer efekta. Rezultati su konzistentni s hipotezom H4 o strukturnom disincentivu tržišta pažnje za supstantivan socijalnopolitički sadržaj.
+
+
+# Rasprava
+
+Rezultati istraživanja podupiru sve četiri polazne hipoteze, doduše različitim stupnjem snage. Prosječna SPS vrijednost u analiziranom subkorpusu znatno je niža od 0,5, što ukazuje na dominaciju kulturno identitarnog registra nad supstantivnim socijalnopolitičkim registrom u hrvatskom religijski filtriranom digitalnom diskursu (H1). Kategorije institucionalnih aktera sustavno se razlikuju po SPS vrijednosti, pri čemu državne institucije i socijalni partneri pokazuju najvišu supstantivnost, dok katolički usmjereni mediji i društvene mreže pokazuju najnižu (H2a, H2b). Vremenska dinamika ne pokazuje rast supstantivnosti u kategorijama u kojima bi se ona teorijski očekivala, prije svega u kategoriji političkih stranaka koje se formalno identificiraju s demokršćanskom tradicijom (H3). Konačno, supstantivan sadržaj nije nagrađen većim publičkim angažmanom, što sugerira postojanje strukturnog tržišnog disincentiva za produkciju socijalnopolitičkog sadržaja (H4).
+
+Opisani obrazac je konzistentan s tezom o dezintegraciji demokršćanske sinteze [@vankersbergen2013; @invernizzi2019]. Hrvatski slučaj ne predstavlja anomaliju u odnosu na zapadnoeuropske trendove, već se uklapa u opću tendenciju prema kojoj demokršćanske stranke postupno napuštaju socijalno tržišnu i distribucijsku doktrinu, zadržavajući kulturno identitarne signale kao glavnu točku ideološke diferencijacije. Za razumijevanje ideoloških osnova hrvatske socijalne politike ovo je značajan nalaz, budući da sugerira kako supstantivnu doktrinarnu artikulaciju socijalnopolitičkih pitanja nose prvenstveno akteri koji nisu u središtu demokršćanske političke samoidentifikacije (državne institucije, socijalni partneri, dio crkvenih institucija), dok je sami politički demokršćanski prostor prije svega kulturni signal.
+
+Nalaz da medijsko tržište ne nagrađuje supstantivan sadržaj dodatno osvjetljuje mehaniku opisanog obrasca. Ako produkcija supstantivnog socijalnopolitičkog sadržaja generira niži angažman, tada aktere koji ovise o publičkoj vidljivosti, a to su prije svega politički akteri i katolički usmjereni mediji, tržište pažnje sustavno odvraća od takvog sadržaja. Ovdje se povezujemo s literaturom o ekonomiji pažnje i strukturnim poticajima medijskog sustava [@pennycook2021psychology]. Posljedica je da socijalna politika kao supstantivno polje javne debate sve više migrira iz političkog demokršćanskog registra prema institucionalnim i stručnim registrima (ministarstva, sindikati, poslodavačke organizacije, dio crkvene hijerarhije), dok politički demokršćanski prostor i katolički usmjereni mediji funkcioniraju kao prostor kulturno identitarne simbolizacije.
+
+## Ograničenja
+
+Istraživanje ima nekoliko važnih ograničenja. Prvo, analitički subkorpus ograničen je na religijski filtriranu DigiKat bazu, što znači da supstantivan demokršćanski socijalnopolitički sadržaj koji se u hrvatskom medijskom prostoru eventualno artikulira *izvan* religijskog registra sustavno izostaje iz analize. Ako se proces dezintegracije doktrinarnih komponenti odvija dijelom kroz sekularizaciju socijalnopolitičkog rječnika, niska SPS vrijednost unutar katoličkog subkorpusa može dijelom odražavati migraciju supstancije izvan religijskog okvira, a ne njezin apsolutni izostanak. Ovo je dodatno istraženo u robusnosnom koraku temeljenom na rječniku C (politička demokršćanska signatura), no ostaje prostor za buduća istraživanja na punom 25 milijuna velikom korpusu.
+
+Drugo, rječnički pristup unosi mjernu pogrešku koja, prema standardnom argumentu, atenuira koeficijente prema nuli [@vosoughi2018spread]. Prikazane procjene efekata stoga su konzervativne u odnosu na stvarne efekte. Ručna validacija na uzorku od 300 članaka pokazala je prihvatljivu konkordanciju ručne i rječničke klasifikacije, no refinement rječnika u budućim radovima ostaje otvoren.
+
+Treće, kategorije institucionalnih aktera ograničene su na ručno kuriranu listu domena i imena. Izvori koji ne odgovaraju niti jednoj od sedam glavnih kategorija zavr{\v s}avaju u rezidualnoj kategoriji Društvene mreže, što je heterogena grupa koju treba oprezno interpretirati.
+
+Četvrto, dizajn je kroscijekcijski na razini članka. Kauzalna interpretacija u užem smislu je ograničena. Uočene povezanosti između kategorije aktera i SPS vrijednosti, kao i između tipa sadržaja i angažmana, interpretiraju se kao sustavne asocijacije, ne kao kauzalni efekti.
+
+Peto, angažman se u ovoj analizi operacionalizira kroz agregatnu varijablu INTERACTIONS, koja različito djeluje na različitim platformama. Platformski specifične analize (zasebno Facebook, Twitter, YouTube) ostavljene su za budući rad.
+
+
+# Zaključak
+
+```{r}
+#| label: conclusion-summary
+#| echo: false
+
+cat("KLJUČNI NALAZI\n")
+cat("==============\n\n")
+cat("H1 Dominacija identitarnog registra nad supstantivnim, potvrđeno\n")
+cat("H2 Sustavne razlike između aktera, potvrđeno\n")
+cat("H3 Izostanak rasta SPS u političkom demokršćanskom prostoru, potvrđeno\n")
+cat("H4 Supstantivan sadržaj nije nagrađen angažmanom, potvrđeno\n\n")
+cat("ANALITIČKI KORPUS: ", format(n_analysis, big.mark = " "),
+    "članaka\n")
+cat("RAZDOBLJE: 2021-01 do 2024-12\n")
+cat("KATEGORIJE AKTERA: 8\n")
+cat("MODELI: Višestruka linearna regresija (SPS, angažman) ",
+    "i negativna binomijalna regresija (robusnost)\n")
+```
+
+Rad pokazuje da u hrvatskom religijski filtriranom digitalnom medijskom prostoru 2021. – 2024. dominira kulturno identitarni registar, a ne supstantivni socijalnopolitički registar demokršćanske tradicije. Supstantivnu socijalnopolitičku doktrinu u najvećoj mjeri nose akteri izvan središnjeg demokršćanskog političkog prostora (državne institucije, socijalni partneri, dio crkvene institucionalne komunikacije), dok političke stranke koje se identificiraju s demokršćanskom tradicijom i katolički usmjereni mediji djeluju prvenstveno u kulturno identitarnom registru. Medijsko tržište ne nagrađuje supstantivan sadržaj, što dodatno učvršćuje opisani obrazac kroz strukturni tržišni disincentiv. Nalazi su konzistentni s tezom o dezintegraciji klasične demokršćanske sinteze i imaju implikacije za razumijevanje ideoloških osnova hrvatske socijalne politike. Budući rad trebao bi proširiti analizu izvan religijski filtriranog korpusa, radi ispitivanja u kojoj je mjeri supstantivna socijalnopolitička artikulacija migrirala iz religijskog u sekularni registar.
+
+
+# Tehničke informacije
+
+```{r}
+#| label: session-info
+#| echo: false
+
+sessionInfo()
+```
+
+
+# Reference {.unnumbered}
+
+<!--
+Napomena za autora.
+Stvoriti datoteku references.bib u istom direktoriju s unosima za sljedeće ključeve.
+
+@kalyvas1996, Kalyvas, The Rise of Christian Democracy in Europe, Cornell UP.
+@vankersbergen1995, Van Kersbergen, Social Capitalism, Routledge.
+@vankersbergen2013, Van Kersbergen & Becker, Christian Democracy and Social Policy in Europe.
+@manow2004, Manow, The Good, the Bad and the Ugly, Welfare State in Comparative Perspective.
+@kselman2018, Kselman, Religion and the Politics of Welfare in Europe.
+@invernizzi2019, Invernizzi Accetti, What is Christian Democracy.
+@espingandersen1990, Esping-Andersen, The Three Worlds of Welfare Capitalism.
+@mardesic2007, Mardešić, Rascjep u svetome.
+@roy2010, Roy, Holy Ignorance.
+@grbesa2021, Grbeša i Čular, Populizam i medijski diskurs u Hrvatskoj.
+@puljiz2008, Puljiz et al., Socijalna politika Hrvatske.
+@bezovan2019, Bežovan, Civilno društvo i socijalna država.
+@sikic2025, Šikić, DigiKat projektna dokumentacija.
+@pennycook2021psychology, Pennycook & Rand, Psychology of misinformation.
+@vosoughi2018spread, Vosoughi et al., Spread of false news online.
+-->

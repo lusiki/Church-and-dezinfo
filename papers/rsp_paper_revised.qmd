@@ -1,0 +1,662 @@
+---
+title: "Sadržaj ili identitet? Demokršćanski socijalnopolitički diskurs u hrvatskom digitalnom medijskom prostoru (2021.–2025.)"
+subtitle: "Radna verzija za Reviju za socijalnu politiku"
+author: "Media Analysis Research"
+date: today
+bibliography: references_.bib
+csl: apa-hr.csl
+lang: hr
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    df-print: paged
+    fig-width: 10
+    fig-height: 6
+    fig-dpi: 300
+    embed-resources: true
+  docx:
+    reference-doc: rsp-reference.docx
+    number-sections: true
+    fig-dpi: 300
+execute:
+  warning: false
+  message: false
+  echo: false
+---
+
+```{r setup}
+#| include: false
+
+# ==============================================================================
+# CONFIGURATION
+# ==============================================================================
+DATA_DIR <- file.path(here::here(), "data")
+
+# ==============================================================================
+# PAKETI
+# ==============================================================================
+required_packages <- c(
+  "dplyr", "tidyr", "stringr", "stringi", "purrr", "tibble", "lubridate",
+  "ggplot2", "scales",
+  "knitr",
+  "broom", "sandwich", "lmtest", "MASS"
+)
+for (pkg in required_packages) {
+  if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
+    install.packages(pkg, quiet = TRUE)
+    library(pkg, character.only = TRUE)
+  }
+}
+select <- dplyr::select
+filter <- dplyr::filter
+
+options(dplyr.summarise.inform = FALSE, scipen = 999)
+
+# ==============================================================================
+# POMOĆNE FUNKCIJE
+# ==============================================================================
+fmt_hr     <- function(x, d = 2) formatC(x, format = "f", digits = d,
+                                         big.mark = "\u00a0", decimal.mark = ",")
+fmt_hr_int <- function(x) formatC(x, format = "d", big.mark = "\u00a0")
+z_crit     <- qnorm(0.975)
+
+# ==============================================================================
+# CRNO BIJELI GRAFIČKI STIL
+# ==============================================================================
+theme_bw_np <- theme_minimal(base_size = 11, base_family = "Arial") +
+  theme(
+    plot.title        = element_text(face = "bold", size = 12, color = "black"),
+    plot.subtitle     = element_text(color = "black", size = 10),
+    axis.text         = element_text(color = "black"),
+    axis.title        = element_text(color = "black"),
+    axis.line         = element_line(color = "black", linewidth = 0.3),
+    axis.ticks        = element_line(color = "black", linewidth = 0.3),
+    panel.background  = element_rect(fill = "white", color = NA),
+    plot.background   = element_rect(fill = "white", color = NA),
+    legend.background = element_rect(fill = "white", color = NA),
+    legend.position   = "bottom",
+    panel.grid.minor  = element_blank(),
+    panel.grid.major  = element_line(color = "gray85", linewidth = 0.3),
+    strip.text        = element_text(face = "bold", size = 10, color = "black"),
+    panel.border      = element_rect(color = "black", fill = NA, linewidth = 0.4)
+  )
+theme_set(theme_bw_np)
+```
+
+```{r data-load}
+#| include: false
+
+# ==============================================================================
+# DATA
+# ==============================================================================
+full_corpus <- readRDS(file.path(DATA_DIR, "catholic_media_full_corpus.rds"))
+
+# Osnovno čišćenje i ograničenje razdoblja 2021.–2025.
+raw <- full_corpus |>
+  mutate(
+    DATE         = as.Date(DATE),
+    FROM         = as.character(FROM),
+    FULL_TEXT    = as.character(FULL_TEXT),
+    SOURCE_TYPE  = as.character(SOURCE_TYPE),
+    INTERACTIONS = suppressWarnings(as.numeric(INTERACTIONS)),
+    INTERACTIONS = ifelse(is.na(INTERACTIONS), 0, INTERACTIONS)
+  ) |>
+  filter(!is.na(DATE),
+         DATE >= as.Date("2021-01-01"),
+         DATE <= as.Date("2025-12-31"))
+```
+
+```{r dictionaries}
+#| include: false
+
+# ==============================================================================
+# RJEČNICI. Regex oblici za normalizirani hrvatski (bez dijakritike, lowercase).
+# ==============================================================================
+
+normalize_text <- function(x) {
+  x |>
+    stringi::stri_trans_general("Latin-ASCII") |>
+    tolower()
+}
+
+# ---- Rječnik A. Demokršćanska socijalna politika ----
+dict_A <- c(
+  "supsidijar[a-z]+", "personaliz[a-z]+", "solidarn[a-z]+",
+  "opce\\s+dobro", "dostojanstv[a-z]+\\s+rada",
+  "socijaln[a-z]+\\s+nauk", "socijalno\\s+trzisn[a-z]+\\s+gospodarstv[a-z]+",
+  "integraln[a-z]+\\s+razvoj", "drustven[a-z]+\\s+pravicnost[a-z]*",
+  "civilizacij[a-z]+\\s+ljubav[a-z]*",
+  "rerum\\s+novarum", "quadragesimo\\s+anno", "mater\\s+et\\s+magistra",
+  "pacem\\s+in\\s+terris", "populorum\\s+progressio", "laborem\\s+exercens",
+  "sollicitudo\\s+rei\\s+socialis", "centesimus\\s+annus",
+  "caritas\\s+in\\s+veritate", "laudato\\s+si", "fratelli\\s+tutti",
+  "kompendij\\s+socijalnog\\s+nauka",
+  "pravedn[a-z]+\\s+plac[a-z]+", "minimaln[a-z]+\\s+plac[a-z]+",
+  "radnick[a-z]+\\s+prav[a-z]+", "kolektivn[a-z]+\\s+pregovaranj[a-z]+",
+  "sindikat[a-z]*", "kodeterminacij[a-z]+", "sudjelovanj[a-z]+\\s+radnik[a-z]+",
+  "zadrug[a-z]+", "socijaln[a-z]+\\s+poduzetnistv[a-z]+",
+  "prekarn[a-z]+", "nezaposlenost[a-z]*",
+  "rodilj(sk|n)[a-z]+\\s+(naknad|dopust)[a-z]*",
+  "ocin(sk|n)[a-z]+\\s+dopust[a-z]*",
+  "roditeljsk[a-z]+\\s+dopust[a-z]*",
+  "djecj[a-z]+\\s+doplat[a-z]+",
+  "natalitet[a-z]*", "pronatalitet[a-z]*",
+  "demografsk[a-z]+\\s+politik[a-z]+",
+  "obiteljsk[a-z]+\\s+politik[a-z]+",
+  "naknad[a-z]+\\s+za\\s+djec[a-z]+",
+  "mirovinsk[a-z]+\\s+(sustav|stup|reform|fond)[a-z]*",
+  "mirovin[a-z]+",
+  "medugeneracijsk[a-z]+\\s+solidarnost[a-z]*",
+  "umirovljenik[a-z]*", "generacijsk[a-z]+\\s+pravednost[a-z]*",
+  "stamben[a-z]+\\s+politik[a-z]+",
+  "priustiv[a-z]+\\s+stanovanj[a-z]+",
+  "socijaln[a-z]+\\s+stanovanj[a-z]+",
+  "socijaln[a-z]+\\s+(pomoc|skrb|zastit|davanj|uslug)[a-z]*",
+  "zajamcen[a-z]+\\s+minimaln[a-z]+\\s+naknad[a-z]+",
+  "garantiran[a-z]+\\s+dohod[a-z]+",
+  "siromastv[a-z]*", "deprivacij[a-z]+",
+  "socijaln[a-z]+\\s+iskljucenost[a-z]*",
+  "dugotrajn[a-z]+\\s+skrb[a-z]*",
+  "javn[a-z]+\\s+zdravstv[a-z]+", "univerzaln[a-z]+\\s+zdravstv[a-z]+",
+  "dostupn[a-z]+\\s+obrazovanj[a-z]+",
+  "obrazovn[a-z]+\\s+pravednost[a-z]*",
+  "de\\s+gasperi", "schuman", "adenauer", "maritain",
+  "mounier", "sturzo",
+  "krscansk[a-z]+\\s+demokracij[a-z]+",
+  "krscansk[a-z]+\\s+socijaln[a-z]+\\s+nauk[a-z]*",
+  "demokrscanstv[a-z]*"
+)
+
+# ---- Rječnik B. Kulturno identitarni registar ----
+dict_B <- c(
+  "rodn[a-z]+\\s+ideologij[a-z]+", "genderizam", "gender\\s+ideologij[a-z]+",
+  "istanbulsk[a-z]+\\s+konvencij[a-z]+", "lgbt[a-z]*",
+  "homoseksualn[a-z]+\\s+propagand[a-z]+",
+  "parad[a-z]+\\s+ponos[a-z]+", "pride",
+  "transrodnost[a-z]*", "pobacaj[a-z]*", "abortus[a-z]*",
+  "kultur[a-z]+\\s+smrti",
+  "migrant[a-z]*", "ilegaln[a-z]+\\s+migrant[a-z]*",
+  "islamizacij[a-z]+", "islamsk[a-z]+\\s+prijetnj[a-z]+",
+  "euroarabij[a-z]*", "velik[a-z]+\\s+zamjen[a-z]+",
+  "dzihad[a-z]*", "serijat[a-z]*",
+  "nacionaln[a-z]+\\s+identitet[a-z]*",
+  "krscansk[a-z]+\\s+identitet[a-z]*",
+  "krscansk[a-z]+\\s+korijen[a-z]*",
+  "krscansk[a-z]+\\s+civilizacij[a-z]+",
+  "krscansk[a-z]+\\s+europ[a-z]+",
+  "tradicionaln[a-z]+\\s+vrijednost[a-z]*",
+  "domoljubn[a-z]+", "domovinsk[a-z]+\\s+rat",
+  "branitelj[a-z]*", "hrvatstv[a-z]*",
+  "vjekovn[a-z]+\\s+vjer[a-z]+",
+  "neomarksiz[a-z]+", "kulturn[a-z]+\\s+marksiz[a-z]+",
+  "globalist[a-z]*", "globaliz[a-z]+",
+  "nov[a-z]+\\s+svjetsk[a-z]+\\s+poreda[a-z]*",
+  "soros[a-z]*", "deep\\s+state", "dubok[a-z]+\\s+drzav[a-z]+",
+  "globaln[a-z]+\\s+elit[a-z]+", "bruxellessk[a-z]+\\s+elit[a-z]+",
+  "mainstream\\s+medij[a-z]*", "antikrscansk[a-z]+", "antikatolick[a-z]+",
+  "obran[a-z]+\\s+obitelj[a-z]+",
+  "tradicionaln[a-z]+\\s+obitelj[a-z]+",
+  "prirodn[a-z]+\\s+obitelj[a-z]+",
+  "obitelj\\s+muskarc[a-z]+\\s+i\\s+zen[a-z]+",
+  "brak\\s+muskarc[a-z]+\\s+i\\s+zen[a-z]+"
+)
+
+count_hits <- function(text_norm, patterns) {
+  if (is.na(text_norm) || text_norm == "") return(0L)
+  sum(stringi::stri_count_regex(text_norm, patterns), na.rm = TRUE)
+}
+```
+
+```{r sample-construction}
+#| include: false
+
+# ==============================================================================
+# ANALITIČKI UZORAK
+# Pravila: FULL_TEXT >= 50 znakova I najmanje 1 pogodak u A ili B.
+# ==============================================================================
+
+analytic <- raw |>
+  filter(!is.na(FULL_TEXT), nchar(FULL_TEXT) >= 50) |>
+  mutate(text_norm = normalize_text(FULL_TEXT),
+         hits_A    = purrr::map_int(text_norm, ~ count_hits(.x, dict_A)),
+         hits_B    = purrr::map_int(text_norm, ~ count_hits(.x, dict_B))) |>
+  filter(hits_A + hits_B >= 1) |>
+  mutate(
+    SPS          = hits_A / (hits_A + hits_B),
+    content_type = case_when(
+      SPS > 0.6 ~ "Supstantivan",
+      SPS < 0.4 ~ "Identitaran",
+      TRUE      ~ "Mjesoviti"
+    ),
+    content_type = factor(content_type,
+                          levels = c("Identitaran", "Mjesoviti", "Supstantivan")),
+    year_num     = lubridate::year(DATE),
+    month_date   = lubridate::floor_date(DATE, "month"),
+    length_chars = nchar(FULL_TEXT),
+    log_length   = log(length_chars)
+  )
+```
+
+```{r actor-categorization}
+#| include: false
+
+# ==============================================================================
+# KATEGORIZACIJA AKTERA iz pred-izračunatih DigiKat indikatora.
+# Prioritet dodjele po redu nabrajanja ispod.
+# ==============================================================================
+
+logi <- function(x) {
+  if (is.logical(x)) return(x)
+  if (is.numeric(x)) return(x > 0)
+  as.logical(x)
+}
+
+analytic <- analytic |>
+  mutate(
+    actor_category = case_when(
+      logi(actor_CHURCH)       ~ "Diskurs o Crkvi",
+      logi(actor_GOVERNMENT)   ~ "Diskurs o vlasti",
+      logi(actor_FAMILY_ORGS)  ~ "Diskurs o obiteljskim udrugama",
+      logi(actor_NGO_CIVIL)    ~ "Diskurs o civilnom drustvu",
+      logi(actor_EU_ACTORS)    ~ "Diskurs o EU",
+      logi(actor_SCIENTISTS)   ~ "Diskurs o akademskoj zajednici",
+      logi(actor_MEDIA_ACTORS) ~ "Diskurs o medijima",
+      TRUE                     ~ "Bez dominantne aktorske reference"
+    ),
+    actor_category = factor(
+      actor_category,
+      levels = c("Diskurs o Crkvi", "Diskurs o vlasti",
+                 "Diskurs o obiteljskim udrugama", "Diskurs o civilnom drustvu",
+                 "Diskurs o EU", "Diskurs o akademskoj zajednici",
+                 "Diskurs o medijima", "Bez dominantne aktorske reference")
+    )
+  )
+
+# Dijagnostika. Deset najčešćih izvora po kategoriji.
+actor_diag <- analytic |>
+  count(actor_category, FROM, sort = TRUE) |>
+  group_by(actor_category) |>
+  slice_max(n, n = 10, with_ties = FALSE) |>
+  ungroup()
+```
+
+# Sažetak {.unnumbered}
+
+Rad empirijski ispituje kompoziciju demokršćanskog socijalnopolitičkog i kulturno identitarnog diskursa u hrvatskom digitalnom medijskom prostoru u razdoblju od 2021. do 2025. Na temelju DigiKat korpusa konstruiramo analitički uzorak objava koje sadrže barem jednu riječ iz doktrinarnog socijalnopolitičkog rječnika ili iz kulturno identitarnog rječnika. Indeks supstantivnosti (SPS) definiran je kao udio doktrinarnih pogodaka u ukupnim pogocima. Objave razvrstavamo prema tome o kojem institucionalnom akteru govore, koristeći pred-izračunate indikatore u korpusu koji identificiraju aktera kao predmet rasprave, ne kao autora objave. Hipoteze testiramo frakcijskom logističkom regresijom s klasteriranim standardnim pogreškama na razini izvora. Rezultati pokazuju razlike u prosječnoj SPS vrijednosti između diskurzivnih kategorija, odsutnost rasta supstantivnosti kroz vrijeme, i negativnu povezanost supstantivnog sadržaja s publičkim angažmanom. Nalazi podržavaju tezu o dezintegraciji klasične demokršćanske sinteze u javnom diskursu.
+
+**Ključne riječi.** demokršćanska doktrina, socijalna politika, digitalni mediji, analiza sadržaja, supsidijarnost, solidarnost, Hrvatska.
+
+# Abstract {.unnumbered}
+
+This paper examines the composition of Christian democratic social policy and cultural identity discourse in the Croatian digital media sphere from 2021 to 2025. Drawing on the DigiKat corpus, we construct an analytical sample of posts that contain at least one hit from a doctrinal social policy dictionary or from a cultural identity dictionary. The Social Policy Substance Index (SPS) is defined as the share of doctrinal hits in total hits. Posts are classified by which institutional actor they discuss, using pre-computed indicators in the corpus that identify the actor as the subject of discussion, not as the author of the post. Hypotheses are tested with fractional logistic regression and standard errors clustered at the source level. Results show differences in mean SPS across discursive categories, no upward trend in substantiveness over the period, and a negative association between substantive content and public engagement. The findings support the thesis of disintegration of the classical Christian democratic synthesis in public discourse.
+
+**Keywords.** Christian democratic doctrine, social policy, digital media, content analysis, subsidiarity, solidarity, Croatia.
+
+# Uvod
+
+Razvijene europske socijalne države tradicionalno se razvrstavaju u tri velike skupine. Prva su skandinavske socijaldemokratske države sa snažnom redistribucijom i univerzalnim pravima. Druga su anglosaksonske liberalne države u kojima tržište igra glavnu ulogu. Treća je konzervativna ili kontinentalna europska skupina, u koju spadaju Njemačka, Austrija, Belgija, Nizozemska i Italija, a po mnogočemu i Hrvatska. Ovu klasifikaciju razvio je Esping Andersen [@espingandersen1990]. Konzervativni model počiva na središnjoj ulozi obitelji, na osiguranju vezanom uz rad i na ideji supsidijarnosti.
+
+Povijesni nositelj ovog modela u Europi bila je demokršćanska politička tradicija [@vankersbergen1995; @manow2004]. Demokršćanske stranke oslanjale su se na razrađenu doktrinu katoličkog socijalnog nauka. Tu doktrinu čine četiri pojma. Supsidijarnost znači da odluke i pomoć trebaju ostati što bliže ljudima koje pogađaju. Solidarnost znači uzajamnu odgovornost prema slabijima. Personalizam stavlja ljudsku osobu u središte. Opće dobro označava ono što koristi cijelom društvu. Ove ideje prevodile su se u konkretne politike, između ostalog u mirovinski sustav međugeneracijske solidarnosti, snažnu obiteljsku politiku, socijalno tržišno gospodarstvo i pravednu plaću [@kalyvas1996; @kselman2018].
+
+Posljednjih dvadesetak godina u zapadnoj Europi opaža se promjena. Demokršćanske stranke napuštaju ovu socijalno ekonomsku doktrinu i približavaju se tržišno liberalnim pozicijama. Istodobno naglašavaju kulturne i identitetske teme kako bi sačuvale glasove koji odlaze prema nacionalno populističkoj desnici [@vankersbergen2013; @invernizzi2019]. Ako stranke koje su povijesno nosile konzervativni model socijalne države više ne razrađuju njegov doktrinarni sadržaj, taj model gubi ideološko utemeljenje.
+
+Hrvatska je za ovo pitanje zanimljiv slučaj. Dominantna politička stranka HDZ službeno pripada europskoj demokršćanskoj obitelji i u programskim dokumentima poziva se na demokršćansku tradiciju. Njezin povijesni identitet jasno naglašava nacionalne i identitetske teme [@grbesa2021]. Katolička Crkva u Hrvatskoj ima vidljivu javnu poziciju i vlastite medije. Hrvatska socijalnopolitička literatura opisala je institucionalne karakteristike domaćeg sustava kao mješavinu kontinentalnog i mediteranskog modela [@puljiz2008; @bezovan2019]. Manje znamo o tome što se u javnosti govori kada akteri raspravljaju o socijalnoj politici. Govori li se o supstantivnoj socijalnoj politici, ili je rasprava svedena na kulturne i identitetske teme?
+
+Ovaj rad odgovara na to pitanje. Koristimo DigiKat korpus [@sikic2025] u razdoblju od 2021. do 2025. Iz korpusa zadržavamo objave koje sadrže barem jednu riječ iz socijalnopolitičkog doktrinarnog rječnika ili iz kulturno identitarnog rječnika. To je naš analitički uzorak. Objave razvrstavamo prema tome o kojem institucionalnom akteru govore, a ne prema tome tko ih je napisao. Pred-izračunati indikatori u DigiKat korpusu identificiraju aktera kao predmet rasprave u tekstu (Crkva, vlast, obiteljske udruge, civilno društvo, EU, akademska zajednica, mediji). Ova diskurzivna klasifikacija legitimno je analitičko pitanje. Kako mediji obrađuju različite aktere u socijalnopolitičkom i identitarnom registru pokazuje koji su akteri u javnoj raspravi povezani sa supstantivnom doktrinarnom artikulacijom, a koji s kulturno identitarnim okvirom.
+
+Doprinos rada je trostruk. Metodološki nudimo ponovljiv mjerni instrument za velike količine hrvatskog digitalnog teksta. Empirijski mapiramo ideološku kompoziciju javne rasprave o socijalnoj politici. Teorijski rezultati omogućuju test teze o dezintegraciji klasične demokršćanske sinteze.
+
+# Teorijski okvir
+
+Demokršćanska tradicija prevodi katolički socijalni nauk u dvije velike skupine ideja koje su povijesno funkcionirale zajedno, ali ih za potrebe analize moramo razlikovati. Prvu skupinu nazivamo socijalno ekonomskom. Ona obuhvaća supsidijarnost, solidarnost, personalizam, opće dobro i dostojanstvo rada, te konkretne politike koje iz njih slijede [@kalyvas1996; @manow2004]. Drugu skupinu nazivamo kulturno moralnom. Ona se odnosi na obitelj, brak, ljudski život, vjeru u javnom prostoru i pitanja nacionalnog identiteta. Klasični europski demokršćanski model nakon 1945. godine počivao je na ravnoteži ovih dviju skupina [@espingandersen1990; @vankersbergen1995].
+
+Suvremena teza o dezintegraciji [@vankersbergen2013; @invernizzi2019; @kselman2018] tvrdi sljedeće. Demokršćanske stranke asimetrično napuštaju ovu sintezu. Socijalno ekonomska komponenta slabi, a kulturno identitetska ostaje ili se pojačava. Slično razlikovanje razvijeno je u hrvatskoj sociologiji religije, u Mardešićevoj dihotomiji evanđeoskog i političkog katolicizma [@mardesic2007; @roy2010].
+
+Iz ove perspektive empirijsko pitanje sastava javnog diskursa postaje važan pokazatelj stanja doktrinarnih osnova konzervativnog tipa socijalne države. Ako je socijalno ekonomski registar slab i opadajući, a kulturno identitetski dominantan, doktrinarna podloga konzervativnog socijalnopolitičkog modela u Hrvatskoj slabi.
+
+# Istraživačka pitanja i hipoteze
+
+Hipoteze izravno proizlaze iz teorije. Teza o dezintegraciji predviđa da kulturno identitarni registar dominira nad socijalno ekonomskim (H1), da se diskurzivne kategorije razlikuju u sastavu (H2), da supstantivni registar ne pokazuje obnovu kroz vrijeme (H3) i da tržište pažnje ne nagrađuje supstantivnu artikulaciju (H4).
+
+**IP1.** Kolika je zastupljenost supstantivnog socijalnopolitičkog registra u javnoj raspravi mjerenoj putem dvaju rječnika? **H1.** Prosječna SPS vrijednost razlikuje se od 0,5. Smjer odstupanja testira se dvostranim testom.
+
+**IP2.** Razlikuju li se diskurzivne kategorije po prosječnoj SPS vrijednosti? **H2.** Rasprava o akademskoj zajednici i o EU akterima povezana je s višom prosječnom SPS vrijednošću od rasprave o Crkvi, obiteljskim udrugama i civilnom društvu.
+
+**IP3.** Kako se SPS kreće kroz vrijeme? **H3.** U razdoblju 2021.–2025. SPS je stabilan ili opada u većini diskurzivnih kategorija.
+
+**IP4.** Nagrađuje li medijsko tržište supstantivan ili identitaran sadržaj? **H4.** Uz kontrole, supstantivan sadržaj povezan je s nižim angažmanom od identitarnog.
+
+# Metoda
+
+## Korpus i analitički uzorak
+
+Podaci dolaze iz projekta DigiKat [@sikic2025]. Korpus sustavno prikuplja digitalni medijski sadržaj relevantan za praćenje javnog diskursa u Hrvatskoj. Iz cjelokupnog korpusa konstruiramo analitički uzorak u dva koraka. Prvo zadržavamo objave duljine najmanje 50 znakova. Drugo zadržavamo samo objave koje sadrže barem jedan pogodak iz rječnika A (doktrinarni socijalnopolitički pojmovi) ili iz rječnika B (kulturno identitarni pojmovi). Objave bez ijednog pogotka ne nose informaciju o kompoziciji dviju ispitivanih dimenzija.
+
+```{r tbl-uzorak}
+#| tbl-cap: "Veličina analitičkog uzorka po godini."
+sample_by_year <- analytic |>
+  count(year_num, name = "N") |>
+  mutate(N = fmt_hr_int(N)) |>
+  rename(Godina = year_num)
+kable(sample_by_year, align = c("l", "r"))
+```
+
+## Mjerenje pomoću rječnika
+
+Svaku objavu opisujemo prema dvije dimenzije. Prva dimenzija mjeri prisutnost rječnika demokršćanske socijalne politike (rječnik A). Druga dimenzija mjeri prisutnost kulturno identitarnog rječnika (rječnik B). Obje liste pojmova dane su u prilogu. Svi pojmovi su regularni izrazi koji obuhvaćaju hrvatske padežne i rodne nastavke. Prije podudaranja tekst se normalizira tako da se uklanja dijakritika i sve prebacuje u mala slova.
+
+## Indeks supstantivnosti
+
+Za objavu $i$ brojimo pogotke iz rječnika A, označene $A_i$, i pogotke iz rječnika B, označene $B_i$. Indeks supstantivnosti je
+
+$$SPS_i = \frac{A_i}{A_i + B_i}, \quad A_i + B_i \geq 1.$$
+
+SPS jednak 1 znači isključivo supstantivan sadržaj, 0 znači isključivo identitaran sadržaj, 0,5 znači uravnoteženost. Za analizu angažmana definiramo kategorijsku varijablu. Objavu nazivamo supstantivnom ako je SPS veći od 0,6, identitarnom ako je manji od 0,4 i mješovitom inače.
+
+## Diskurzivna klasifikacija objava
+
+Svakoj objavi pridružujemo jednu od osam diskurzivnih kategorija na temelju pred-izračunatih indikatora u DigiKat korpusu. Indikatori identificiraju o kojem institucionalnom akteru objava govori, ne tko je njezin autor. Autori većinom su medijski izvori, dok su institucionalni akteri (Crkva, vlast, obiteljske udruge, civilno društvo, EU, akademska zajednica, medijski akteri) predmet rasprave u tekstu. Kategorija Bez dominantne aktorske reference obuhvaća objave koje nijedan indikator nije aktivirao. Ako objava aktivira više indikatora, primjenjuje se prioritetni redoslijed nabrajanja, koji odražava jačinu teorijskog interesa za pojedinu skupinu. Ovaj pristup ima analitičku vrijednost jer istražuje povezanost aktera kao teme s registrom rasprave. Ako je rasprava o vlasti dominantno identitarna a rasprava o akademskoj zajednici supstantivna, to govori o načinu na koji hrvatski javni prostor obrađuje te aktere. Dijagnostička tablica deset najčešćih izvora po kategoriji nalazi se u prilogu.
+
+## Empirijska strategija
+
+Glavni regresijski model je frakcijska logistička regresija. Za omeđenu varijablu SPS s masom u krajnjim točkama 0 i 1, frakcijski model je prikladniji od OLS jer osigurava predviđene vrijednosti unutar jediničnog intervala i ne pretpostavlja normalnost pogreške [@papke1996]. Procjenjujemo
+
+$$E[SPS_i \mid X_i] = \Lambda(\alpha + \beta' A_i + \gamma' Y_i + \delta \ln L_i),$$
+
+gdje je $\Lambda(\cdot)$ logistička funkcija, $A_i$ vektor indikatora za diskurzivnu kategoriju s referentnom Bez dominantne aktorske reference, $Y_i$ vektor indikatora za godinu s referentnom 2021., a $\ln L_i$ logaritam duljine teksta u znakovima. Parametre procjenjujemo kvazibinomnom glm procjenom. Standardne pogreške klasteriramo na razini izvora (`FROM`) jer objave istog izvora dijele neopažena uređivačka obilježja [@cameron2015]. Kao provjeru robusnosti prijavljujemo OLS s istim skupom regresora i istim klasteriranim pogreškama.
+
+Za hipotezu H4 ishod je broj interakcija. Glavni model je negativna binomijalna regresija, koja je prikladna za preraspršene brojčane podatke s masom oko nule. Kao provjeru robusnosti prijavljujemo OLS na $\ln(1 + \text{INTERACTIONS})$.
+
+Dizajn je opisni i kroscijekcijski na razini objave. Sve veze interpretiramo kao asocijacije, ne kao uzročne odnose. Rječnički pristup ne hvata ironiju i parafrazu, pa procjene teže biti konzervativne u odnosu na stvarne veze.
+
+# Rezultati
+
+## Deskriptivni pokazatelji
+
+```{r tbl-desc}
+#| tbl-cap: "Broj objava i prosječne vrijednosti ključnih varijabli po diskurzivnoj kategoriji."
+
+desc <- analytic |>
+  group_by(`Diskurzivna kategorija` = actor_category) |>
+  summarise(
+    N              = n(),
+    `Prosjek SPS`  = mean(SPS),
+    `Medijan SPS`  = median(SPS),
+    `Prosjek A`    = mean(hits_A),
+    `Prosjek B`    = mean(hits_B),
+    .groups = "drop"
+  ) |>
+  mutate(
+    Udio          = N / sum(N) * 100,
+    N             = fmt_hr_int(N),
+    Udio          = fmt_hr(Udio, 1),
+    `Prosjek SPS` = fmt_hr(`Prosjek SPS`, 3),
+    `Medijan SPS` = fmt_hr(`Medijan SPS`, 3),
+    `Prosjek A`   = fmt_hr(`Prosjek A`, 2),
+    `Prosjek B`   = fmt_hr(`Prosjek B`, 2)
+  ) |>
+  select(`Diskurzivna kategorija`, N, Udio,
+         `Prosjek SPS`, `Medijan SPS`, `Prosjek A`, `Prosjek B`)
+kable(desc, align = c("l", "r", "r", "r", "r", "r", "r"))
+```
+
+*Izvor. DigiKat 2021.–2025., obrada autora.*
+
+```{r h1-test}
+#| include: false
+t_h1 <- t.test(analytic$SPS, mu = 0.5, alternative = "two.sided")
+mean_sps <- mean(analytic$SPS)
+```
+
+Prosječna vrijednost SPS u analitičkom uzorku iznosi `r fmt_hr(mean_sps, 3)`. Dvostrani t test razlike od 0,5 daje t = `r fmt_hr(t_h1$statistic, 2)` (p `r ifelse(t_h1$p.value < 0.001, "< 0,001", paste("=", fmt_hr(t_h1$p.value, 3)))`). Pouzdani interval od 95 posto je [`r fmt_hr(t_h1$conf.int[1], 3)`, `r fmt_hr(t_h1$conf.int[2], 3)`]. H1 je podržana ako interval ne sadrži 0,5. Smjer odstupanja čitamo iz same prosječne vrijednosti u odnosu na referencu 0,5.
+
+```{r fig-sps-hist}
+#| fig-cap: "Distribucija SPS vrijednosti u analitičkom uzorku."
+ggplot(analytic, aes(x = SPS)) +
+  geom_histogram(binwidth = 0.05, fill = "gray40", color = "black", linewidth = 0.3) +
+  geom_vline(xintercept = 0.5, linetype = "dashed", color = "black") +
+  scale_y_continuous(labels = label_number(big.mark = "\u00a0")) +
+  labs(x = "SPS", y = "Broj objava")
+```
+
+Distribucija je izrazito polarizirana, s masom u krajnjim točkama 0 i 1. Ovo je posljedica konstrukcije indeksa. SPS postaje 0 kada objava ima barem jedan pogodak iz rječnika B i nijedan iz A, i 1 u suprotnoj situaciji. Činjenica da je mješoviti registar u manjini odražava supstantivni nalaz. Većina autora u jednoj objavi piše ili o socijalnoj politici ili o identitetskim temama, rijetko o oboje.
+
+## Razlike između diskurzivnih kategorija
+
+```{r fig-sps-actor}
+#| fig-cap: "Prosječna SPS vrijednost po diskurzivnoj kategoriji s intervalima pouzdanosti od 95 posto."
+
+actor_ci <- analytic |>
+  group_by(actor_category) |>
+  summarise(
+    mean = mean(SPS),
+    se   = sd(SPS) / sqrt(n()),
+    N    = n(),
+    .groups = "drop"
+  ) |>
+  filter(N >= 5) |>
+  mutate(lo = mean - z_crit * se,
+         hi = mean + z_crit * se,
+         lbl = paste0(actor_category, "\nN = ", fmt_hr_int(N)))
+
+ggplot(actor_ci, aes(x = reorder(lbl, mean), y = mean)) +
+  geom_point(size = 3, color = "black") +
+  geom_errorbar(aes(ymin = lo, ymax = hi), width = 0.15, color = "black") +
+  geom_hline(yintercept = 0.5, linetype = "dashed", color = "black") +
+  coord_flip() +
+  labs(x = NULL, y = "Prosjek SPS (95% CI)")
+```
+
+```{r tbl-anova}
+#| tbl-cap: "ANOVA. Razlike u SPS vrijednosti između diskurzivnih kategorija."
+anova_fit <- aov(SPS ~ actor_category, data = analytic)
+anova_tbl <- broom::tidy(anova_fit) |>
+  mutate(across(where(is.numeric), ~ fmt_hr(.x, 3)))
+kable(anova_tbl)
+```
+
+*Izvor. DigiKat 2021.–2025., obrada autora.*
+
+Razlike između diskurzivnih kategorija su statistički značajne. Tumačenje slijedi iz slike s intervalima pouzdanosti. Kategorije čiji se intervali ne preklapaju razlikuju se s visokom vjerojatnošću.
+
+## Multivarijatni model. Frakcijska logistička regresija
+
+```{r tbl-frac-logit}
+#| tbl-cap: "Frakcijska logistička regresija SPS vrijednosti. Koeficijenti u logit skali. Klasterirane standardne pogreške na razini izvora."
+
+# Zadržavamo samo kategorije s dovoljno opažanja za stabilnu procjenu.
+keep_cats_reg <- analytic |>
+  count(actor_category) |>
+  filter(n >= 30) |>
+  pull(actor_category)
+
+reg_data <- analytic |>
+  filter(actor_category %in% keep_cats_reg,
+         !is.na(actor_category), !is.na(year_num), !is.na(log_length)) |>
+  mutate(actor_category = droplevels(actor_category),
+         year_fct       = factor(year_num),
+         actor_rel      = if ("Bez dominantne aktorske reference" %in% levels(actor_category))
+                            relevel(actor_category, ref = "Bez dominantne aktorske reference")
+                          else if ("Diskurs o medijima" %in% levels(actor_category))
+                            relevel(actor_category, ref = "Diskurs o medijima")
+                          else actor_category,
+         FROM_fct       = factor(FROM))
+
+frac_fit <- glm(SPS ~ actor_rel + year_fct + log_length,
+                data   = reg_data,
+                family = quasibinomial(link = "logit"))
+vc_frac  <- sandwich::vcovCL(frac_fit, cluster = ~ FROM_fct)
+ct_frac  <- lmtest::coeftest(frac_fit, vcov. = vc_frac)
+ci_frac  <- lmtest::coefci(frac_fit, vcov. = vc_frac, level = 0.95)
+
+frac_tbl <- tibble(
+  Prediktor = rownames(ct_frac),
+  Koef      = fmt_hr(ct_frac[, "Estimate"], 3),
+  SE        = fmt_hr(ct_frac[, "Std. Error"], 3),
+  z         = fmt_hr(ct_frac[, "z value"], 2),
+  p         = ifelse(ct_frac[, "Pr(>|z|)"] < 0.001, "< 0,001",
+                     fmt_hr(ct_frac[, "Pr(>|z|)"], 3)),
+  `95% CI`  = paste0("[", fmt_hr(ci_frac[, 1], 3), ", ", fmt_hr(ci_frac[, 2], 3), "]")
+)
+kable(frac_tbl, align = c("l", "r", "r", "r", "r", "r"))
+```
+
+*Izvor. DigiKat 2021.–2025., obrada autora. Referentne kategorije: Bez dominantne aktorske reference, godina 2021.*
+
+Koeficijenti su u logit skali. Pozitivan koeficijent znači da diskurzivna kategorija ima veću SPS vrijednost od reference (objave bez dominantne aktorske reference). Godišnji koeficijenti daju trend. Ako su od 2021. prema 2025. negativni i rastu u apsolutnoj vrijednosti, supstantivnost opada kroz vrijeme.
+
+```{r tbl-ols-robust}
+#| tbl-cap: "Provjera robusnosti. OLS na SPS vrijednosti s klasteriranim standardnim pogreškama."
+ols_fit <- lm(SPS ~ actor_rel + year_fct + log_length, data = reg_data)
+vc_ols  <- sandwich::vcovCL(ols_fit, cluster = ~ FROM_fct)
+ct_ols  <- lmtest::coeftest(ols_fit, vcov. = vc_ols)
+ci_ols  <- lmtest::coefci(ols_fit, vcov. = vc_ols, level = 0.95)
+
+ols_tbl <- tibble(
+  Prediktor = rownames(ct_ols),
+  Koef      = fmt_hr(ct_ols[, "Estimate"], 3),
+  SE        = fmt_hr(ct_ols[, "Std. Error"], 3),
+  t         = fmt_hr(ct_ols[, "t value"], 2),
+  p         = ifelse(ct_ols[, "Pr(>|t|)"] < 0.001, "< 0,001",
+                     fmt_hr(ct_ols[, "Pr(>|t|)"], 3)),
+  `95% CI`  = paste0("[", fmt_hr(ci_ols[, 1], 3), ", ", fmt_hr(ci_ols[, 2], 3), "]")
+)
+kable(ols_tbl, align = c("l", "r", "r", "r", "r", "r"))
+```
+
+*Izvor. DigiKat 2021.–2025., obrada autora.*
+
+## Vremenska dinamika
+
+```{r fig-time}
+#| fig-cap: "Mjesečni prosjek SPS vrijednosti po diskurzivnoj kategoriji. Mjeseci s manje od 10 objava u kategoriji nisu prikazani."
+
+# Kategorije s najmanje 200 objava kroz cijelo razdoblje.
+keep_cats_ts <- analytic |>
+  count(actor_category) |>
+  filter(n >= 200) |>
+  pull(actor_category)
+
+ts <- analytic |>
+  filter(actor_category %in% keep_cats_ts) |>
+  group_by(actor_category, month_date) |>
+  summarise(mean_sps = mean(SPS), N = n(), .groups = "drop") |>
+  filter(N >= 10)
+
+ggplot(ts, aes(x = month_date, y = mean_sps)) +
+  geom_point(size = 1.5, color = "black") +
+  geom_smooth(method = "loess", se = FALSE, color = "black",
+              linewidth = 0.5, linetype = "solid") +
+  facet_wrap(~ actor_category, ncol = 2) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  labs(x = NULL, y = "Prosjek SPS")
+```
+
+Prikazane su samo kategorije s najmanje 200 objava u cjelini i mjeseci s najmanje 10 objava u kategoriji, kako bi se izbjegle oscilacije koje proizlaze iz malog broja slučajeva. Kategorije s manjim volumenom izostavljene su iz prikaza vremenske dinamike, ali su prisutne u regresijskim modelima.
+
+## Angažman i tip sadržaja
+
+```{r tbl-nb}
+#| tbl-cap: "Negativna binomijalna regresija broja interakcija. Koeficijenti kao IRR (eksponencirani)."
+
+eng_data <- analytic |>
+  filter(actor_category %in% keep_cats_reg,
+         !is.na(INTERACTIONS), !is.na(year_num)) |>
+  mutate(actor_category = droplevels(actor_category),
+         year_fct       = factor(year_num),
+         actor_rel      = if ("Bez dominantne aktorske reference" %in% levels(actor_category))
+                            relevel(actor_category, ref = "Bez dominantne aktorske reference")
+                          else if ("Diskurs o medijima" %in% levels(actor_category))
+                            relevel(actor_category, ref = "Diskurs o medijima")
+                          else actor_category,
+         FROM_fct       = factor(FROM),
+         INT_int        = as.integer(round(INTERACTIONS)))
+
+nb_ok <- tryCatch({
+  MASS::glm.nb(INT_int ~ content_type + actor_rel + year_fct + log_length,
+               data = eng_data)
+}, error = function(e) NULL)
+
+if (!is.null(nb_ok)) {
+  vc_nb  <- sandwich::vcovCL(nb_ok, cluster = ~ FROM_fct)
+  ct_nb  <- lmtest::coeftest(nb_ok, vcov. = vc_nb)
+  ci_nb  <- lmtest::coefci(nb_ok, vcov. = vc_nb, level = 0.95)
+
+  nb_tbl <- tibble(
+    Prediktor = rownames(ct_nb),
+    IRR       = fmt_hr(exp(ct_nb[, "Estimate"]), 3),
+    SE        = fmt_hr(ct_nb[, "Std. Error"], 3),
+    z         = fmt_hr(ct_nb[, "z value"], 2),
+    p         = ifelse(ct_nb[, "Pr(>|z|)"] < 0.001, "< 0,001",
+                       fmt_hr(ct_nb[, "Pr(>|z|)"], 3)),
+    `95% CI IRR` = paste0("[", fmt_hr(exp(ci_nb[, 1]), 3), ", ",
+                          fmt_hr(exp(ci_nb[, 2]), 3), "]")
+  )
+  kable(nb_tbl, align = c("l", "r", "r", "r", "r", "r"))
+} else {
+  cat("Negativna binomijalna regresija nije konvergirala. Prikazujemo samo OLS provjeru ispod.")
+}
+```
+
+*Izvor. DigiKat 2021.–2025., obrada autora. IRR je omjer očekivanih interakcija. IRR manji od 1 znači niži angažman u odnosu na referencu Identitaran.*
+
+```{r tbl-ols-eng}
+#| tbl-cap: "Provjera robusnosti. OLS na logaritmu interakcija plus jedan."
+eng_data <- eng_data |> mutate(log_eng = log1p(INTERACTIONS))
+ols_eng <- lm(log_eng ~ content_type + actor_rel + year_fct + log_length,
+              data = eng_data)
+vc_oe   <- sandwich::vcovCL(ols_eng, cluster = ~ FROM_fct)
+ct_oe   <- lmtest::coeftest(ols_eng, vcov. = vc_oe)
+ci_oe   <- lmtest::coefci(ols_eng, vcov. = vc_oe, level = 0.95)
+
+ols_eng_tbl <- tibble(
+  Prediktor = rownames(ct_oe),
+  Koef      = fmt_hr(ct_oe[, "Estimate"], 3),
+  SE        = fmt_hr(ct_oe[, "Std. Error"], 3),
+  t         = fmt_hr(ct_oe[, "t value"], 2),
+  p         = ifelse(ct_oe[, "Pr(>|t|)"] < 0.001, "< 0,001",
+                     fmt_hr(ct_oe[, "Pr(>|t|)"], 3)),
+  `95% CI`  = paste0("[", fmt_hr(ci_oe[, 1], 3), ", ", fmt_hr(ci_oe[, 2], 3), "]")
+)
+kable(ols_eng_tbl, align = c("l", "r", "r", "r", "r", "r"))
+```
+
+Interpretacija. Koeficijent uz kategoriju Supstantivan u odnosu na referencu Identitaran govori je li supstantivan sadržaj povezan s manjim ili većim angažmanom. U negativnoj binomijalnoj regresiji IRR manji od 1 znači manji očekivani broj interakcija. Znak bi trebao biti konzistentan u obje specifikacije.
+
+# Rasprava
+
+Empirijski nalazi zajedno pružaju podršku tezi o dezintegraciji klasične demokršćanske sinteze u hrvatskom javnom diskursu. Prosječni SPS u cijelom uzorku iznosi manje od 0,5, što znači da u uzorku dominira kulturno identitarni registar nad socijalno ekonomskim (H1). Razlike između diskurzivnih kategorija su statistički značajne (H2). Supstantivni registar najviše je povezan s raspravom o akademskoj zajednici, koja jedina jasno prelazi prag 0,5. Rasprava o EU akterima deskriptivno je bliska ravnoteži, ali regresijski koeficijent uz nju nije statistički značajan, pa se razlika od rezidualne kategorije ne može potvrditi. Sve ostale diskurzivne kategorije, uključujući raspravu o Crkvi, vlasti, civilnom društvu, obiteljskim udrugama i medijima, nalaze se ispod 0,5 i time su sklonije identitarnom registru. Godišnji koeficijenti u regresiji ne pokazuju trend rasta supstantivnosti (H3). Tržište pažnje ne nagrađuje supstantivan sadržaj. Omjer očekivanih interakcija za supstantivne objave iznosi 0,70 u odnosu na identitarne (H4).
+
+Za socijalnu politiku kao polje ovaj obrazac ima dvije implikacije. Prva je idejna. Kada hrvatski javni diskurs raspravlja o vlasti, supstantivna doktrinarna artikulacija nije dominantan registar. Rasprava o državnim akterima sklonija je identitarnom okviru nego distribucijskom. To ne znači nužno da sama vlast ne provodi socijalnu politiku, nego da javni diskurs o njoj rijetko koristi doktrinarni jezik koji je povijesno bio temelj konzervativnog modela socijalne države. Druga implikacija je strukturna. Supstantivna artikulacija prisutna je gotovo isključivo u raspravi o akademskoj zajednici, koja u digitalnom prostoru ima malen volumen (1,5 posto uzorka). Doktrinarna podloga konzervativnog tipa socijalne države u Hrvatskoj time se nalazi u stručno marginaliziranom prostoru, dok dominantni javni diskurs o institucionalnim akterima (Crkva, vlast, obiteljske udruge) koristi identitarni registar. Socijalna politika se vodi, ali u javnom prostoru rijetko dobiva doktrinarno objašnjenje.
+
+Zaseban nalaz zaslužuje pažnju. Rasprava o medijskim akterima pokazuje najniži SPS među kategorijama s dovoljnim volumenom (0,351), a regresijski koeficijent je jasno negativan u odnosu na rezidualnu referencu. Kada hrvatski javni prostor raspravlja o medijima, jezik rasprave dominantno je identitarni. To se uklapa u širu literaturu o medijskoj kritici kao identitarnom okviru, u kojemu se kritika medija vezuje uz teme kulturnih vrijednosti i nacionalnog identiteta, a manje uz pitanja regulative, tržišnih uvjeta ili radnih prava u medijskoj industriji.
+
+## Ograničenja
+
+Istraživanje ima četiri ograničenja. Prvo, rječnički pristup ne hvata parafrazu, ironiju i zaobilazne formulacije. Procjene su konzervativne u odnosu na stvarne veze. Drugo, diskurzivna klasifikacija temelji se na pred-izračunatim indikatorima u DigiKat korpusu koji identificiraju o kojem akteru objava govori, a ne tko je njezin autor. Dizajn stoga mjeri kako hrvatski javni prostor obrađuje različite aktere, a ne kako sami akteri govore. Ova razlika je važna za interpretaciju. Nalaz da je rasprava o vlasti sklonija identitarnom registru ne znači da sama vlast tako govori. Znači da mediji i drugi autori tako obrađuju državne aktere. Dijagnostička tablica u prilogu omogućuje provjeru koji izvori pokrivaju koju diskurzivnu kategoriju. Treće, dizajn je kroscijekcijski na razini objave. Sve veze interpretiraju se kao asocijacije, ne kao uzročni odnosi. Četvrto, pokrivenost digitalnog prostora ovisi o DigiKat platformi i ne pokriva sve medijske kanale. Asimetrije u prisutnosti pojedinih aktera u digitalnom prostoru nose se na interpretaciju rezultata.
+
+# Zaključak
+
+U hrvatskom digitalnom medijskom prostoru u razdoblju od 2021. do 2025. kulturno identitarni registar dominira nad supstantivnim socijalnopolitičkim registrom demokršćanske tradicije. Supstantivnu artikulaciju primarno donosi rasprava o akademskoj zajednici, koja u digitalnom prostoru ima malen volumen. Rasprava o Crkvi, vlasti, civilnom društvu i obiteljskim udrugama sklonija je identitarnom registru. Tijekom razdoblja nema trenda rasta supstantivnosti. Medijsko tržište ne nagrađuje supstantivan sadržaj. Nalazi su konzistentni s tezom o dezintegraciji klasične demokršćanske sinteze u javnom diskursu. Hrvatska socijalnopolitička rasprava u digitalnom prostoru doktrinarni jezik koristi rijetko i uglavnom u vezi s akademskim akterima, što slabi ideološku vidljivost konzervativnog socijalnopolitičkog modela.
+
+# Prilog A. Dijagnostika diskurzivne klasifikacije {.unnumbered}
+
+Tablica prikazuje deset najčešćih izvora za svaku diskurzivnu kategoriju. Izvori su mediji koji pišu *o* akteru, a ne sami akteri. Primjerice, ako vecernji.hr objavi članak koji spominje Vladu, članak se svrstava u Diskurs o vlasti. Ovaj prikaz omogućuje čitatelju da provjeri koji autori pokrivaju koju diskurzivnu kategoriju.
+
+```{r tbl-actor-diag}
+actor_diag_out <- actor_diag |>
+  mutate(n = fmt_hr_int(n))
+kable(actor_diag_out, col.names = c("Diskurzivna kategorija", "Izvor", "N"))
+```
+
+# Prilog B. Rječnici {.unnumbered}
+
+Cjelovite liste regularnih izraza dane su u repozitoriju koda. Skraćene verzije ključnih pojmova prikazane su u glavnom tekstu.
+
+# Literatura {.unnumbered}
