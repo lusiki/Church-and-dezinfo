@@ -1,7 +1,11 @@
 ---
 title: "Sadržaj ili identitet? Socijalnopolitička supstancija demokršćanskog diskursa u hrvatskom digitalnom medijskom prostoru (2021. – 2026.)"
 subtitle: "Radna verzija za Reviju za socijalnu politiku"
-author: "Media Analysis Research"
+author:
+  - name: "Luka Šikić"
+    affiliation: "Hrvatsko katoličko sveučilište"
+  - name: "Andreja Sršen"
+    affiliation: "Fakultet hrvatskih studija Sveučilišta u Zagrebu"
 date: today
 bibliography: references.bib
 format:

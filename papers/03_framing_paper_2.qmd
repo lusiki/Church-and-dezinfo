@@ -2,8 +2,10 @@
 title: "Tko govori iz katoličkoga medijskog prostora"
 subtitle: "Narativni okviri u hrvatskim katoličkim web medijima u razdoblju od 2021. do 2026."
 author:
-  - name: "(anonimizirano za recenziju)"
-    affiliation: ""
+  - name: "Luka Šikić"
+    affiliation: "Hrvatsko katoličko sveučilište"
+  - name: "Andreja Sršen"
+    affiliation: "Fakultet hrvatskih studija Sveučilišta u Zagrebu"
 keywords:
   - hrvatski katolički mediji
   - mediatizacija religije
